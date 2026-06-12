@@ -639,7 +639,7 @@ function programHTML(){
   if(isTrainer()) h+=`<div class="addrow" onclick="newSeries()">+ new series</div>
       <div class="addrow" onclick="go('catalog')">+ add from catalog</div>`;
   h+=`
-      <div class="addrow" onclick="accountMenu()">⇅ ${localStorage.getItem('duro_email')||''}</div></div>`;
+      </div>`;
   if(EDITP) h+=`<div class="bar"><div class="bi"><button class="ghost" onclick="discardProgram()">discard changes</button></div><button class="go" onclick="saveProgram()">SAVE PROGRAM</button></div>`;
   else if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
   else h+=`<div class="bar empty"><span class="hint">tap exercises to build today's session</span></div>`;
@@ -974,7 +974,7 @@ window.accountMenu=()=>{
   d.style.top='58px'; d.style.right='14px'; d.style.left='auto';
   d.innerHTML=`<div class="lb">account</div>
     <div style="font-family:var(--mono);font-size:12px;color:var(--ink-2);padding:2px 0 8px">${esc(em)}</div>
-    <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-bottom:4px">sync is on across your devices${hasTrainer()?` · ${isTrainer()?'trainer':'trainee view'}`:''}</div>
+    ${hasTrainer()?`<div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-bottom:4px">${isTrainer()?'trainer':'trainee view'}</div>`:''}
     ${hasTrainer()?`<button class="act" onclick="closeCtx();toggleView()">${isTrainer()?'view as trainee':'back to trainer view'}</button>`:''}
     <button class="act red" onclick="closeCtx();authAbort()">sign out</button>`;
   document.body.appendChild(d);
