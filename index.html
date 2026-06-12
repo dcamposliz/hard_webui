@@ -485,7 +485,7 @@ function renderProgram(){
   }
   h+=`<div class="addrow" onclick="newSeries()">+ new series</div>
       <div class="addrow" onclick="go('catalog')">+ add from catalog</div>
-      <div class="addrow" onclick="syncMenu()">⇅ sync ${syncToken()?'· on':'· off — tap to set up'}</div></div>`;
+      <div class="addrow" onclick="accountMenu()">⇅ account ${localStorage.getItem('duro_email')||(syncToken()?'· device-only code':'· sign in')}</div></div>`;
   if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
   else h+=`<div class="bar empty"><span class="hint">tap exercises to build today's session</span></div>`;
   h+=nav();
@@ -689,26 +689,29 @@ window.focusDone=id=>{ const was=DB.sessDone.includes(id); toggleDone(id);
   if(!was){ go('session'); } else { render(); } };
 window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; render(); };
 window.cycleSort=()=>{ UI.sort=SORTS[(SORTS.indexOf(UI.sort)+1)%SORTS.length]; render(); };
-window.syncMenu=async()=>{
-  if(syncToken()){
-    const keep=confirm('sync is ON\n\nyour sync code: '+syncToken()+'\n\nuse this code on another device to get your data.\n\nOK = keep syncing · Cancel = disconnect this device');
-    if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); toast('sync off'); render(); }
+window.accountMenu=async()=>{
+  const em=localStorage.getItem('duro_email');
+  if(em&&syncToken()){
+    const keep=confirm('signed in as '+em+'\nsync is on across your devices.\n\nOK = stay signed in · Cancel = sign out of this device');
+    if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); localStorage.removeItem('duro_email'); toast('signed out'); render(); }
     return;
   }
-  const code=prompt('enter your sync code from another device —\nor leave EMPTY to create a new one');
-  if(code===null) return;
-  if(code.trim()){
-    localStorage.setItem('duro_sync_token',code.trim()); localStorage.removeItem('duro_sync_at');
-    await pullState(); pushState(); toast('sync on'); render();
-  } else {
-    try{
-      const r=await fetch(API+'/signup',{method:'POST'});
-      const d=await r.json();
-      localStorage.setItem('duro_sync_token',d.token);
-      alert('your sync code:\n\n'+d.token+'\n\nWRITE IT DOWN — it is the only key to your data.');
-      pushState(); toast('sync on'); render();
-    }catch(e){ alert('could not reach api.duro.fit — try again'); }
-  }
+  const email=prompt('your email — we send a 6-digit login code'); if(!email||!email.includes('@')) return;
+  try{
+    const r1=await fetch(API+'/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    if(!r1.ok){ alert('could not send the code — try again'); return; }
+  }catch(e){ alert('could not reach api.duro.fit'); return; }
+  const code=prompt('enter the 6-digit code sent to '+email); if(!code) return;
+  try{
+    const r2=await fetch(API+'/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,code:code.trim(),sync_token:syncToken()||undefined})});
+    if(!r2.ok){ alert('bad or expired code'); return; }
+    const d=await r2.json();
+    localStorage.setItem('duro_sync_token',d.token);
+    localStorage.setItem('duro_email',d.email);
+    localStorage.removeItem('duro_sync_at');
+    await pullState(); pushState(); toast('signed in'); render();
+  }catch(e){ alert('could not reach api.duro.fit'); }
 };
 window.toggleTheme=()=>{ const t=document.body.dataset.theme==='dark'?'light':'dark';
   document.body.dataset.theme=t; localStorage.setItem('hard_theme',t); };
