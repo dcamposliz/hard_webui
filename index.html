@@ -696,6 +696,12 @@ document.addEventListener('pointerup',()=>{
   DRAG.row.classList.remove('lift');
   const grp=DRAG.grp; DRAG=null;
   const ids=[...document.querySelectorAll(`[data-grp="${grp}"]`)].map(r=>r.dataset.did);
+  if(grp.startsWith('st:')){
+    const key=grp.slice(3), d=ST.doc; if(!d) return;
+    if(key==='entries'){ const m=new Map(d.entries.map(e=>[e.id,e])); d.entries=ids.map(id=>m.get(id)).filter(Boolean); }
+    else { const s=d.series.find(x=>x.id===key); if(!s) return; s.exIds=ids.filter(id=>s.exIds.includes(id)); }
+    ST.dirty=true; renderStudio(); return;
+  }
   if(grp==='p'){
     const set=new Set(ids);
     const reordered=ids.map(id=>DB.program.find(p=>p.id===id)).filter(Boolean);
@@ -1147,19 +1153,17 @@ function stPeditHTML(){
       <button class="st-mini" onclick="ST.target='${s.id}';renderStudio()" title="add here">⊕</button>
       <button class="st-mini" onclick="stDelSeries('${s.id}')">×</button></div>`;
     s.exIds.forEach((k,i)=>{
-      R+=`<div class="st-doc-row" style="margin-left:14px"><span class="mut">${i+1}</span>${stThumb(k)}<span class="nm">${esc(stName(k))}</span>
-        <button class="st-mini" onclick="stMove('${s.id}',${i},-1)" ${i===0?'disabled':''}>↑</button>
-        <button class="st-mini" onclick="stMove('${s.id}',${i},1)" ${i===s.exIds.length-1?'disabled':''}>↓</button>
+      R+=`<div class="st-doc-row" style="margin-left:14px" data-did="${esc(k)}" data-grp="st:${s.id}"><span class="mut">${i+1}</span>${stThumb(k)}<span class="nm">${esc(stName(k))}</span>
+        <span class="dh">≡</span>
         <button class="st-mini" onclick="stRm('${s.id}',${i})">×</button></div>`;
     });
   }
   if(d.entries.length) R+=`<div class="st-serhd" style="margin-top:18px"><span class="nm">loose exercises</span>
     <button class="st-mini" onclick="ST.target='entries';renderStudio()" title="add here">⊕</button></div>`;
   d.entries.forEach((en,i)=>{
-    R+=`<div class="st-doc-row"><span class="mut">${i+1}</span>${stThumb(en.id)}<span class="nm">${esc(stName(en.id))}</span>
+    R+=`<div class="st-doc-row" data-did="${esc(en.id)}" data-grp="st:entries"><span class="mut">${i+1}</span>${stThumb(en.id)}<span class="nm">${esc(stName(en.id))}</span>
       <span class="st-freq" onclick="stEntryFreq(${i})">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span>
-      <button class="st-mini" onclick="stMove(null,${i},-1)" ${i===0?'disabled':''}>↑</button>
-      <button class="st-mini" onclick="stMove(null,${i},1)" ${i===d.entries.length-1?'disabled':''}>↓</button>
+      <span class="dh">≡</span>
       <button class="st-mini" onclick="stRm(null,${i})">×</button></div>`;
   });
   if(!d.series.length&&!d.entries.length) R+='<div class="empty">empty — add exercises from the left</div>';
@@ -1173,8 +1177,6 @@ window.stAdd=k=>{ const d=ST.doc;
   else { const s=d.series.find(x=>x.id===ST.target); if(s&&!s.exIds.includes(k)) s.exIds.push(k); }
   ST.dirty=true; renderStudio(); };
 window.stRm=(sid,i)=>{ const d=ST.doc; if(sid){ d.series.find(s=>s.id===sid).exIds.splice(i,1); } else d.entries.splice(i,1); ST.dirty=true; renderStudio(); };
-window.stMove=(sid,i,dir)=>{ const d=ST.doc; const arr=sid?d.series.find(s=>s.id===sid).exIds:d.entries;
-  const j=i+dir; if(j<0||j>=arr.length)return; [arr[i],arr[j]]=[arr[j],arr[i]]; ST.dirty=true; renderStudio(); };
 window.stNewSeries=()=>{ const n=prompt('series name','warm-up'); if(!n)return;
   const id=uid();
   ST.doc.series.push({id,name:n.trim(),exIds:[],freq:'every'}); ST.target=id; ST.dirty=true; renderStudio(); };
