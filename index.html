@@ -219,8 +219,10 @@ let CAT=null,M2R={},EXBY={},MEDIA={},COMMON={};
 const disp=s=>{ const c=COMMON[s]; return c?`${s} (${c})`:s; };
 const slug=s=>(''+s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 function mediaSrc(id){
-  if(DB.media&&DB.media[id]) return DB.media[id];           // user-uploaded (data URL)
-  const f=MEDIA[slug(id)]; return f?('media/'+f):null;      // file dropped into /media
+  const e=EXBY[id];
+  if(e&&e.media_url) return e.media_url;                    // shared (S3)
+  if(DB.media&&DB.media[id]) return DB.media[id];           // legacy on-device
+  const f=MEDIA[slug(id)]; return f?('media/'+f):null;
 }
 function mediaHTML(id,cls){
   const src=mediaSrc(id);
@@ -417,12 +419,19 @@ function renderAuth(){
     <h1 style="font-size:64px;margin:10px 0 6px">duro</h1>
     <div class="sl" style="margin-bottom:28px">coverage, not logging. sign in to train.</div>`;
   if(stage==='email'){
-    h+=`<div class="lb" style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">email</div>
+    const signup=UI.authMode==='signup';
+    h+=`<div style="display:flex;gap:8px;max-width:340px;width:100%;margin-bottom:16px">
+      <span class="evtog ${!signup?'on':''}" style="flex:1;justify-content:center" onclick="UI.authMode='login';render()">log in</span>
+      <span class="evtog ${signup?'on':''}" style="flex:1;justify-content:center" onclick="UI.authMode='signup';render()">sign up</span>
+    </div>
     <input class="txt" id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(UI.authEmail||'')}" style="max-width:340px;margin-bottom:10px">
-    <input class="txt" id="authInvite" placeholder="invite code — new accounts only" value="${esc(UI.invite||'')}" style="max-width:340px;text-transform:uppercase">
+    ${signup?`<input class="txt" id="authInvite" placeholder="invite code" value="${esc(UI.invite||'')}" style="max-width:340px;text-transform:uppercase">
     <div style="height:14px"></div>
+    <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SIGN UP →</button>
+    <div class="legendln" style="max-width:340px">alpha is invite-only — no code, no entry.</div>`
+    :`<div style="height:14px"></div>
     <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SEND LOGIN CODE →</button>
-    <div class="legendln" style="max-width:340px">alpha is invite-only. returning users can leave the invite blank.</div>`;
+    <div class="legendln" style="max-width:340px">we email you a 6-digit code — no passwords.</div>`}`;
   } else if(stage==='profile'){
     h+=`<div class="sl" style="margin-bottom:2px">signed in as <b>${esc(localStorage.getItem('duro_email')||UI.authEmail||'')}</b></div>
     <div class="sl" style="margin-bottom:6px">one more step — tell us who's training</div>
@@ -457,10 +466,14 @@ window.authSend=async()=>{
   const email=(document.getElementById('authEmail').value||'').trim().toLowerCase();
   if(!email.includes('@')){ toast('enter a valid email'); return; }
   UI.authEmail=email;
-  UI.invite=(document.getElementById('authInvite').value||'').trim().toUpperCase();
+  const inviteEl=document.getElementById('authInvite');
+  UI.invite=inviteEl?(inviteEl.value||'').trim().toUpperCase():'';
   try{
     const r=await fetch(API+'/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,invite:UI.invite})});
-    if(r.status===403){ toast('valid invite code required'); return; }
+    if(r.status===403){
+      toast(UI.authMode==='signup'?'valid invite code required':'no account for that email — tap sign up');
+      return;
+    }
     if(!r.ok){ toast('could not send code'); return; }
     UI.authStage='code'; render();
   }catch(e){ toast('cannot reach api.duro.fit'); }
@@ -532,6 +545,7 @@ function catalogHTML(){
   <div class="list">`;
   const catRow=e=>{ const id=e.original_name, inn=inProgram(id);
     return `<div class="row ${inn?'in':''}">${mediaHTML(id)}<div class="rb" onclick="editExercise('${esc(id)}')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span><span class="goal">${(e.goals||[])[0]||''}</span></div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div><div class="add" onclick="toggleProgram('${esc(id)}')">${inn?'✓':'+'}</div></div>`; };
+  h+=`<div class="addrow" onclick="newExercise()">+ new exercise</div>`;
   if(UI.filter==='all'){
     // clustered by PRIMARY region, body order
     let any=false;
@@ -680,9 +694,10 @@ function renderExEdit(){
     <div class="row" style="border:none;padding:0;gap:16px">${mediaHTML(id,'ethumb')}
       <div style="flex:1">
         <input type="file" accept="image/*,video/mp4,video/webm" onchange="pickMedia(event,'${esc(id)}')" style="font-family:var(--mono);font-size:11px;max-width:100%">
-        ${DB.media[id]?`<div style="margin-top:8px"><span class="evtog" onclick="clearMedia('${esc(id)}')">remove media</span></div>`:''}
-        <div class="legendln">stored on this device. or drop a file named ${esc(slug(id))}.gif into /media via mac-sync.</div>
+        <div class="legendln">uploads are shared — every user sees this media.</div>
       </div></div></div>
+  <div class="efield"><div class="lb">notes / cues</div>
+    <textarea class="txt" rows="3" style="resize:vertical;font-weight:400;font-size:14px" onchange="exSetNote('${esc(id)}',this.value)">${esc(e.note||'')}</textarea></div>
   <div class="efield"><div class="lb">goals</div>
     <div class="mpills">${['hypertrophy','mobility','therapy'].map(g=>`<span class="mpill ${ (e.goals||[]).includes(g)?'p':''}" onclick="toggleGoalE('${esc(id)}','${g}')">${g}</span>`).join('')}</div></div>
   <div class="efield"><div class="lb">rating</div>${starsHTML(id)}</div>
@@ -693,7 +708,8 @@ function renderExEdit(){
     h+=`<div class="mreg">${g}</div><div class="mpills">`+
       ms.map(m=>`<span class="mpill ${role(m.scientific)}" onclick="cycleMuscle('${esc(id)}','${esc(m.scientific)}')">${esc(m.common||m.scientific)}</span>`).join('')+`</div>`;
   }
-  h+=`<div class="legendln">solid = primary · shaded = secondary · edits live on this device (like ratings) until there's a backend</div></div>
+  h+=`<div class="legendln">solid = primary · shaded = secondary · edits are global — every user sees them</div></div>
+  <div class="efield"><span class="evtog" style="color:var(--red-ink);border-color:var(--red-ink)" onclick="retireExercise('${esc(id)}')">retire exercise</span></div>
   </div>${nav()}`;
   $.innerHTML=h;
 }
@@ -871,10 +887,36 @@ window.deleteSeries=sid=>{ const s=serById(sid); if(!confirm(`delete series "${s
   DB.series=DB.series.filter(x=>x.id!==sid); DB.session=DB.session.filter(it=>!(it.k==='s'&&it.sid===sid)); save(); render(); };
 window.cycleSerFreq=sid=>{ const s=serById(sid); s.freq=FREQS[(FREQS.indexOf(s.freq)+1)%FREQS.length]; save(); render(); };
 // exercise editor actions — edits persist as overrides on top of the shared catalog
-const persistEdit=id=>{ const e=EXBY[id];
-  DB.edits[id]={suggested_name:e.suggested_name,goals:e.goals,primary:e.primary,secondary:e.secondary}; save(); toast('saved'); };
+const persistEdit=async id=>{ const e=EXBY[id];
+  try{
+    const r=await fetch(API+'/exercises/'+encodeURIComponent(id),{method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},
+      body:JSON.stringify({name:e.suggested_name,primary:e.primary,secondary:e.secondary,goals:e.goals,note:e.note||''})});
+    if(r.ok){ toast('saved'); try{localStorage.setItem('duro_excache',JSON.stringify(CAT.exercises));}catch(_){} }
+    else toast('save failed');
+  }catch(_){ toast('offline — not saved'); } };
 window.editExercise=id=>{ UI.eid=id; UI.screen='exedit'; render(); };
 window.exSetName=(id,v)=>{ const e=EXBY[id]; e.suggested_name=v.trim()||e.suggested_name; persistEdit(id); render(); };
+window.exSetNote=(id,v)=>{ const e=EXBY[id]; e.note=v.trim(); persistEdit(id); };
+window.newExercise=async()=>{
+  const name=prompt('new exercise name'); if(!name||!name.trim())return;
+  try{
+    const r=await fetch(API+'/exercises',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({name:name.trim()})});
+    if(!r.ok){ toast('create failed'); return; }
+    const e=await r.json();
+    CAT.exercises.push(e); EXBY[e.original_name]=e;
+    toast('created — now set its muscles'); editExercise(e.original_name);
+  }catch(_){ toast('offline'); }
+};
+window.retireExercise=async id=>{
+  if(!confirm('retire this exercise? it disappears from the catalog (old programs keep working)'))return;
+  try{
+    const r=await fetch(API+'/exercises/'+encodeURIComponent(id),{method:'DELETE',headers:{'Authorization':'Bearer '+syncToken()}});
+    if(!r.ok){ toast('failed'); return; }
+    CAT.exercises=CAT.exercises.filter(e=>e.original_name!==id); delete EXBY[id];
+    toast('retired'); go('catalog');
+  }catch(_){ toast('offline'); }
+};
 window.toggleGoalE=(id,g)=>{ const e=EXBY[id]; e.goals=e.goals||[];
   const i=e.goals.indexOf(g); if(i>=0)e.goals.splice(i,1); else e.goals.push(g); persistEdit(id); render(); };
 window.cycleMuscle=(id,m)=>{ const e=EXBY[id]; e.primary=e.primary||[]; e.secondary=e.secondary||[];
@@ -882,12 +924,17 @@ window.cycleMuscle=(id,m)=>{ const e=EXBY[id]; e.primary=e.primary||[]; e.second
   else if(e.secondary.includes(m)){ e.secondary=e.secondary.filter(x=>x!==m); }
   else { e.primary.push(m); }
   persistEdit(id); render(); };
-window.pickMedia=(ev,id)=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return;
-  if(f.size>2500000){ alert('keep it under ~2.5MB (it lives in browser storage for now) — use a small gif or short clip'); return; }
-  const r=new FileReader(); r.onload=()=>{ DB.media[id]=r.result;
-    try{ save(); toast('media saved'); }catch(err){ delete DB.media[id]; alert('storage full — remove another media file first'); }
-    render(); }; r.readAsDataURL(f); };
-window.clearMedia=id=>{ delete DB.media[id]; save(); toast('media removed'); render(); };
+window.pickMedia=async(ev,id)=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return;
+  if(f.size>15*1024*1024){ alert('max 15MB'); return; }
+  toast('uploading…');
+  try{
+    const r=await fetch(API+'/exercises/'+encodeURIComponent(id)+'/media',{method:'POST',
+      headers:{'Content-Type':f.type,'Authorization':'Bearer '+syncToken()},body:f});
+    if(r.ok){ const d=await r.json(); EXBY[id].media_url=d.media_url;
+      try{localStorage.setItem('duro_excache',JSON.stringify(CAT.exercises));}catch(_){}
+      toast('media saved'); render(); }
+    else { const e=await r.json().catch(()=>({})); toast(e.error||'upload failed'); }
+  }catch(_){ toast('offline — upload failed'); } };
 window.toggleInSeries=(sid,id)=>{ const s=serById(sid); const i=s.exIds.indexOf(id);
   if(i>=0)s.exIds.splice(i,1); else s.exIds.push(id); save(); render(); };
 window.rmFromSeries=(sid,i)=>{ const s=serById(sid); s.exIds.splice(i,1); save(); render(); };
