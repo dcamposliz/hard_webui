@@ -318,7 +318,6 @@ function exGroups(e){
 }
 const priGroups=e=>Object.entries(exGroups(e)).filter(([g,r])=>r==='pri').map(([g])=>g);
 const homeRegion=e=>GROUPS.find(g=>exGroups(e)[g]==='pri')||null; // first primary region, body order
-const authorHome=e=>{ const m=(e.primary||[])[0]; return m?((M2R[m]||[])[0]||null):null; }; // first primary muscle's region
 function coverage(){ // region -> count of primary hits this cycle (weighted by completion counts)
   const c={}; GROUPS.forEach(g=>c[g]=0);
   const ids=new Set([...Object.keys(DB.doneCount),...DB.sessDone]);
@@ -376,7 +375,7 @@ function filterBar(showSort){
     (!UI.showFilters&&active.length?`<button class="gb on" onclick="clearFilters()">${active.join(' · ')} ×</button>`:'')+`</div>`;
 }
 function tagsHTML(e){
-  return GROUPS.filter(g=>exGroups(e)[g]==='pri').map(g=>`<span class="tag pr">${cap(g)}</span>`).join('');
+  return GROUPS.filter(g=>g in exGroups(e)).map(g=>`<span class="tag ${exGroups(e)[g]==='pri'?'pr':'sc'}">${cap(g)}</span>`).join('');
 }
 // primary/other dichotomy under an active region filter: primary bold ink, secondary light gray
 const nameCls=e=>(UI.filter!=='all'&&exGroups(e)[UI.filter]==='sec')?'exn dim2':'exn';
@@ -534,12 +533,12 @@ function catalogHTML(){
   const catRow=e=>{ const id=e.original_name, inn=inProgram(id);
     return `<div class="row ${inn?'in':''}">${mediaHTML(id)}<div class="rb" onclick="editExercise('${esc(id)}')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span><span class="goal">${(e.goals||[])[0]||''}</span></div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div><div class="add" onclick="toggleProgram('${esc(id)}')">${inn?'✓':'+'}</div></div>`; };
   if(UI.filter==='all'){
-    // one home per exercise (first primary muscle's region) — no duplicates
+    // clustered by PRIMARY region, body order
     let any=false;
     for(const g of GROUPS){
-      const grp=list.filter(e=>authorHome(e)===g);
+      const grp=list.filter(e=>exGroups(e)[g]==='pri');
       if(!grp.length) continue; any=true;
-      h+=`<div class="ghd"><span class="gn">${cap(g)}</span><span class="gc">${grp.length}</span></div>`;
+      h+=`<div class="ghd"><span class="gn">${cap(g)} region</span><span class="gc">${grp.length}</span></div>`;
       h+=grp.map(catRow).join('');
     }
     if(!any) h+='<div class="empty">no exercises match</div>';
