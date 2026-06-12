@@ -226,7 +226,7 @@
   .st-panes{flex:1;min-height:0;display:flex;overflow:hidden;}
   .st-pane{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
   .st-pane+.st-pane{border-left:2px solid var(--ink);}
-  .st-doc-row{display:flex;align-items:center;gap:9px;padding:7px 8px;border-bottom:1px solid var(--line);border-radius:6px;}
+  .st-doc-row{display:flex;align-items:center;gap:9px;padding:7px 8px;border-bottom:1px solid var(--line);border-radius:6px;cursor:grab;user-select:none;-webkit-user-select:none;}
   .st-doc-row .nm{flex:1;font-family:var(--grot);font-weight:700;font-size:14px;min-width:0;}
   .st-mini{background:none;border:1px solid var(--line-2);border-radius:6px;color:var(--ink-2);width:26px;height:26px;font-size:12px;cursor:pointer;flex:none;}
   .st-freq{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--ink-2);border:1px solid var(--line-2);border-radius:999px;padding:3px 9px;cursor:pointer;white-space:nowrap;}
@@ -673,22 +673,31 @@ document.addEventListener('click',ev=>{ if(LP.fired){ ev.stopPropagation(); ev.p
 /* ---------- drag to reorder (program backlog "p", session "s") ---------- */
 let DRAG=null;
 document.addEventListener('pointerdown',ev=>{
-  const hd=ev.target.closest('.dh'); if(!hd) return;
-  const row=hd.closest('[data-did]'); if(!row) return;
+  let row=null;
+  const hd=ev.target.closest('.dh');
+  if(hd) row=hd.closest('[data-did]');
+  else if(ev.pointerType==='mouse'&&!ev.target.closest('button,.st-freq'))
+    row=ev.target.closest('[data-did][data-grp^="st:"]'); // studio rows: grab anywhere
+  if(!row) return;
   ev.preventDefault();
   DRAG={row,grp:row.dataset.grp};
   row.classList.add('lift');
 },{passive:false});
 document.addEventListener('pointermove',ev=>{
   if(!DRAG) return; ev.preventDefault();
-  const sibs=[...document.querySelectorAll(`[data-grp="${DRAG.grp}"]`)].filter(r=>r!==DRAG.row);
+  const st=DRAG.grp.startsWith('st:'); // studio doc: drag across sections
+  const sibs=[...document.querySelectorAll(st?'[data-grp^="st:"]':`[data-grp="${DRAG.grp}"]`)].filter(r=>r!==DRAG.row);
   for(const s of sibs){
     const b=s.getBoundingClientRect();
     if(ev.clientY>b.top&&ev.clientY<b.bottom){
       if(ev.clientY<b.top+b.height/2) s.parentNode.insertBefore(DRAG.row,s);
       else s.parentNode.insertBefore(DRAG.row,s.nextSibling);
-      break;
+      return;
     }
+  }
+  if(st) for(const hd of document.querySelectorAll('[data-sec]')){ // hover a section header → drop in at its top
+    const b=hd.getBoundingClientRect();
+    if(ev.clientY>b.top&&ev.clientY<b.bottom){ hd.parentNode.insertBefore(DRAG.row,hd.nextSibling); break; }
   }
 },{passive:false});
 document.addEventListener('pointerup',()=>{
@@ -697,9 +706,18 @@ document.addEventListener('pointerup',()=>{
   const grp=DRAG.grp; DRAG=null;
   const ids=[...document.querySelectorAll(`[data-grp="${grp}"]`)].map(r=>r.dataset.did);
   if(grp.startsWith('st:')){
-    const key=grp.slice(3), d=ST.doc; if(!d) return;
-    if(key==='entries'){ const m=new Map(d.entries.map(e=>[e.id,e])); d.entries=ids.map(id=>m.get(id)).filter(Boolean); }
-    else { const s=d.series.find(x=>x.id===key); if(!s) return; s.exIds=ids.filter(id=>s.exIds.includes(id)); }
+    const d=ST.doc, cont=document.getElementById('stdoc'); if(!d||!cont) return;
+    // rebuild the whole document from DOM order: rows belong to the section header above them
+    const ser={}; d.series.forEach(s=>ser[s.id]=[]);
+    const ents=[]; let cur='entries';
+    for(const el of cont.children){
+      if(el.dataset.sec){ cur=el.dataset.sec; continue; }
+      const did=el.dataset.did; if(!did) continue;
+      if(cur!=='entries'&&ser[cur]){ if(!ser[cur].includes(did)) ser[cur].push(did); }
+      else if(!ents.some(e=>e.id===did)) ents.push(d.entries.find(e=>e.id===did)||{id:did,freq:1});
+    }
+    d.series.forEach(s=>s.exIds=ser[s.id]);
+    d.entries=ents;
     ST.dirty=true; renderStudio(); return;
   }
   if(grp==='p'){
@@ -1146,9 +1164,9 @@ function stPeditHTML(){
       <span class="st-btn" onclick="stNewSeries()">+ series</span>
       <span class="st-btn primary" onclick="stSaveDoc()">save${ST.dirty?' *':''}</span>
       <span class="st-btn" onclick="stGo('programs')">close</span>
-    </span></div><div class="st-list">`;
+    </span></div><div class="st-list" id="stdoc">`;
   for(const s of d.series){
-    R+=`<div class="st-serhd"><span class="nm" onclick="stRenameSeries('${s.id}')">${esc(s.name)}</span>
+    R+=`<div class="st-serhd" data-sec="${s.id}"><span class="nm" onclick="stRenameSeries('${s.id}')">${esc(s.name)}</span>
       <span class="st-freq" onclick="stSerFreq('${s.id}')">${s.freq==='every'?'every session':s.freq+'×/cycle'}</span>
       <button class="st-mini" onclick="ST.target='${s.id}';renderStudio()" title="add here">⊕</button>
       <button class="st-mini" onclick="stDelSeries('${s.id}')">×</button></div>`;
@@ -1158,7 +1176,7 @@ function stPeditHTML(){
         <button class="st-mini" onclick="stRm('${s.id}',${i})">×</button></div>`;
     });
   }
-  if(d.entries.length) R+=`<div class="st-serhd" style="margin-top:18px"><span class="nm">loose exercises</span>
+  if(d.entries.length||d.series.length) R+=`<div class="st-serhd" data-sec="entries" style="margin-top:18px"><span class="nm">loose exercises</span>
     <button class="st-mini" onclick="ST.target='entries';renderStudio()" title="add here">⊕</button></div>`;
   d.entries.forEach((en,i)=>{
     R+=`<div class="st-doc-row" data-did="${esc(en.id)}" data-grp="st:entries"><span class="mut">${i+1}</span>${stThumb(en.id)}<span class="nm">${esc(stName(en.id))}</span>
