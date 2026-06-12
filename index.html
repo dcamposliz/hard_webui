@@ -725,7 +725,7 @@ function renderProgram(){
   const sessN=sessionLeaves().length;
   const ap=DB.activeProgram;
   let h=`<div class="hd">
-    <div class="eye"><span>PROGRAM</span>${ap?`<span>${esc(ap.name)} · ${esc(ap.by)}</span>`:''}</div>
+    <div class="eye">${ap?`<span>${esc(ap.name)} · ${esc(ap.by)}</span>`:'<span>&nbsp;</span>'}</div>
     <div class="trow"><div class="ttl">the<br>program</div></div>
     ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>`:''}
   </div>
@@ -787,13 +787,13 @@ function renderProgram(){
 function renderSession(){
   const leaves=sessionLeaves();
   if(!leaves.length){
-    $.innerHTML=`<div class="hd"><div class="eye"><span>TODAY</span></div><div class="trow"><div class="ttl">session</div></div></div>
+    $.innerHTML=`<div class="hd"><div class="eye"><span>TODAY</span></div><div class="trow"><div class="ttl">the<br>session</div></div></div>
       <div class="empty">nothing in today's session yet.<br>go to the program and tap exercises in.</div>${nav()}`;
     return;
   }
   const total=leaves.length, done=leaves.filter(id=>DB.sessDone.includes(id)).length;
   let h=`<div class="hd"><div class="eye"><span>TODAY</span></div>
-    <div class="trow"><div class="ttl">session</div><div class="cnt"><div class="big">${done}/${total}</div><div class="lbl">done</div></div></div></div>
+    <div class="trow"><div class="ttl">the<br>session</div><div class="cnt"><div class="big">${done}/${total}</div><div class="lbl">done</div></div></div></div>
     <div class="list">`;
   for(const it of DB.session.filter(x=>x.k==='s')){
     const s=DB.series.find(x=>x.id===it.sid); if(!s) continue;
