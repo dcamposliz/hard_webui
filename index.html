@@ -136,7 +136,7 @@
   .cbar{height:7px;border-radius:3px;background:var(--line-2);margin-top:7px;overflow:hidden;display:flex;}
   .cbar .prev{height:100%;background:var(--ink);} .cbar .gain{height:100%;background:var(--red);}
   /* nav */
-  .nav{flex:none;display:flex;border-top:1px solid var(--line);background:var(--paper);}
+  .nav{flex:none;display:flex;border-top:1px solid var(--line);background:var(--paper);margin-top:auto;}
   .nav button{flex:1;background:none;border:none;padding:12px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;}
   .nav button.on{color:var(--ink);font-weight:700;}
   .empty{color:var(--ink-3);font-family:var(--mono);font-size:13px;padding:40px 20px;text-align:center;}
@@ -345,13 +345,15 @@ const authed=()=>!!(syncToken()&&localStorage.getItem('duro_email')&&localStorag
 // trainer UI deleted 2026-06-12 (David: redesign from scratch around the five
 // authoring functions). Capability still exists server-side; this app is the
 // trainee product only.
-const hasTrainer=()=>false;
+const hasTrainer=()=>false;          // legacy trainee-app gates: permanently off
 const isTrainer=()=>false;
+const canAuthor=()=>localStorage.getItem('duro_trainer')==='1'; // unlocks /trainer studio
 const deskBuild=()=>isTrainer()&&window.innerWidth>=1000;
 function render(){
   if(!authed()) return renderAuth();
-  if(!isTrainer()&&['catalog','exedit','seredit','programs'].includes(UI.screen)) UI.screen='program';
-  document.body.classList.toggle('deskbuild',deskBuild());
+  if(!canAuthor()&&['trainer','catalog','exedit','seredit','programs'].includes(UI.screen)) UI.screen='program';
+  if(UI.screen==='programs') UI.screen='trainer';
+  document.body.classList.toggle('deskbuild',deskBuild()||(canAuthor()&&['trainer','catalog','exedit','seredit','program'].includes(UI.screen)&&EDITP!==null)||UI.screen==='trainer');
   if(deskBuild()&&(UI.screen==='catalog'||UI.screen==='program')) renderBuilder();
   else if(UI.screen==='catalog') renderCatalog();
   else if(UI.screen==='seredit') renderSeriesEditor();
@@ -367,9 +369,6 @@ function render(){
 function nav(){
   const n=sessionLeaves().length;
   return `<div class="nav">
-    ${isTrainer()?`<button class="${UI.screen==='catalog'?'on':''}" onclick="go('catalog')">catalog</button>
-    <button class="${UI.screen==='programs'?'on':''}" onclick="go('programs')">programs</button>`:''}
-    <button class="${UI.screen==='find'||UI.screen==='progpage'?'on':''}" onclick="go('find')">find</button>
     <button class="${UI.screen==='program'||UI.screen==='seredit'?'on':''}" onclick="go('program')">${EDITP?'editing…':'program'}</button>
     <button class="${UI.screen==='session'?'on':''}" onclick="go('session')">session ${n?'· '+n:''}</button>
     <button onclick="toggleTheme()" style="flex:none;min-width:46px" title="theme">◐</button>
@@ -405,13 +404,13 @@ const ratingOf=id=>(DB.ratings||{})[id]||0;
 const starsHTML=id=>`<div class="stars">`+[1,2,3,4,5].map(n=>`<span class="star ${n<=ratingOf(id)?'on':''}" onclick="event.stopPropagation();setRating('${esc(id)}',${n})">★</span>`).join('')+`</div>`;
 const byRating=(a,b)=>ratingOf(b.original_name)-ratingOf(a.original_name);
 function freqHTML(p){
-  const act=isTrainer()?`onclick="event.stopPropagation();cycleFreq('${esc(p.id)}')"`:'';
+  const act=EDITP?`onclick="event.stopPropagation();cycleFreq('${esc(p.id)}')"`:'';
   if(p.freq==='every') return `<span class="freq" ${act}><span class="ev">● EVERY SESSION</span></span>`;
   const n=countOf(p.id);
   return `<span class="freq" ${act}><span class="seg">${Array.from({length:p.freq},(_,i)=>`<b class="${i<n?'done':''}"></b>`).join('')}</span>${Math.min(n,p.freq)}/${p.freq}</span>`;
 }
 function serFreqHTML(s){
-  const act=isTrainer()?`onclick="event.stopPropagation();cycleSerFreq('${s.id}')"`:'';
+  const act=EDITP?`onclick="event.stopPropagation();cycleSerFreq('${s.id}')"`:'';
   if(s.freq==='every') return `<span class="freq" ${act}><span class="ev">● EVERY SESSION</span></span>`;
   const n=DB.serDone[s.id]||0;
   return `<span class="freq" ${act}><span class="seg">${Array.from({length:s.freq},(_,i)=>`<b class="${i<n?'done':''}"></b>`).join('')}</span>${Math.min(n,s.freq)}/${s.freq}</span>`;
@@ -534,13 +533,14 @@ window.authProfile=async()=>{
 };
 
 function catalogHTML(){
-  let list=CAT.exercises.slice();
+  let list=CAT.exercises.filter(e=>!MYSET||MYSET.has(e.original_name));
   if(UI.goal!=='all') list=list.filter(e=>(e.goals||[]).includes(UI.goal));
   if(UI.filter!=='all') list=list.filter(e=>UI.filter in exGroups(e));
   list.sort(byRating);
   let h=`<div class="hd">
-    <div class="eye"><span>CATALOG</span><span>${DB.program.length} IN PROGRAM</span></div>
-    <div class="trow"><div class="ttl">the<br>catalog</div><div class="cnt"><div class="big">${CAT.exercises.length}</div><div class="lbl">exercises</div></div></div>
+    <div class="eye"><span>MY EXERCISES</span><span>${DB.program.length} IN PROGRAM</span></div>
+    <div class="trow"><div class="ttl">add<br>exercises</div></div>
+    <div style="margin-top:10px"><span class="evtog" onclick="go('program')">← back to ${EDITP?esc(EDITP.name):'program'}</span></div>
   </div>
   ${filterBar()}
   ${UI.showFilters?`<div class="gbar">${goalBtns()}</div>
@@ -601,11 +601,11 @@ function programHTML(){
   const serRow=(s,inn)=>{ const open=!!UI.openSer[s.id];
     let r=`<div class="row ser ${inn?'in':''}">
         <div class="thumb sthumb" style="width:78px;min-height:74px"><span class="ply" style="font-size:17px">≣</span><span class="ct2">${s.exIds.length}</span></div>
-        <div class="rb" onclick="${isTrainer()?`editSeries('${s.id}')`:`toggleSerOpen('${s.id}')`}"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
+        <div class="rb" onclick="${EDITP?`editSeries('${s.id}')`:`toggleSerOpen('${s.id}')`}"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
           <div class="smeta"><span>${s.exIds.length} exercise${s.exIds.length===1?'':'s'}</span>${serFreqHTML(s)}</div></div>
         <button class="mv" style="align-self:center" onclick="toggleSerOpen('${s.id}')">${open?'▾':'▸'}</button>
         ${EDITP?'':`<div class="add" onclick="event.stopPropagation();toggleSeries('${s.id}')">${inn?'✓':'+'}</div>`}
-        ${isTrainer()?`<button class="rm" onclick="event.stopPropagation();deleteSeries('${s.id}')">×</button>`:''}</div>`;
+        ${EDITP?`<button class="rm" onclick="event.stopPropagation();deleteSeries('${s.id}')">×</button>`:''}</div>`;
     if(open) r+=s.exIds.map((xid,i)=>{ const e=EXBY[xid];
       return `<div class="ordrow" style="padding-left:44px;background:var(--paper-2)"><span class="num">${i+1}</span><span class="exn" style="font-size:14px;color:var(--ink-2)">${esc(e?e.suggested_name:xid)}</span></div>`; }).join('');
     return r; };
@@ -614,7 +614,7 @@ function programHTML(){
     return `<div class="row ${picked?'in':''}" data-ctx="${esc(id)}" oncontextmenu="openCtxEv(event,'${esc(id)}')" ${picked?'':`data-did="${esc(id)}" data-grp="p"`}>
         ${mediaHTML(id)}<div class="rb" onclick="showDetail('${esc(id)}','program')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span>${freqHTML(p)}</div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div>
         ${EDITP?'':`<div class="add" onclick="toggleSession('${esc(id)}')">${picked?'✓':'+'}</div>`}
-        ${isTrainer()?`<button class="rm" onclick="removeFromProgram('${esc(id)}')">×</button>`:''}${(!picked&&draggable)?'<span class="dh">≡</span>':''}</div>`; };
+        ${EDITP?`<button class="rm" onclick="removeFromProgram('${esc(id)}')">×</button>`:''}${(!picked&&draggable)?'<span class="dh">≡</span>':''}</div>`; };
   const serOut=EDITP?DB.series:DB.series.filter(s=>!seriesInSession(s.id)), serIn=EDITP?[]:DB.series.filter(s=>seriesInSession(s.id));
   const entOut=EDITP?entries:entries.filter(x=>!inSession(x.p.id)), entIn=EDITP?[]:entries.filter(x=>inSession(x.p.id));
   // current sprint at the very top — highest priority
@@ -636,11 +636,11 @@ function programHTML(){
     h+=entOut.map(x=>progRow(x,false)).join('');
     if(!entries.length) h+='<div class="empty">nothing in your program matches that filter</div>';
   } else if(!DB.series.length){
-    h+=isTrainer()?`<div class="empty">your program is empty.<br>add exercises from the catalog ↓</div>`
-                  :`<div class="empty">no program yet.<br>your trainer is setting you up.</div>`;
+    h+=EDITP?`<div class="empty">empty program — add exercises ↓</div>`
+            :`<div class="empty">no program yet.<br><br><span class="evtog" onclick="go('find')">browse programs →</span></div>`;
   }
-  if(isTrainer()) h+=`<div class="addrow" onclick="newSeries()">+ new series</div>
-      <div class="addrow" onclick="go('catalog')">+ add from catalog</div>`;
+  if(EDITP) h+=`<div class="addrow" onclick="newSeries()">+ new series</div>
+      <div class="addrow" onclick="go('catalog')">+ add exercises</div>`;
   h+=`
       </div>`;
   if(EDITP) h+=`<div class="bar"><div class="bi"><button class="ghost" onclick="discardProgram()">discard changes</button></div><button class="go" onclick="saveProgram()">SAVE PROGRAM</button></div>`;
@@ -690,7 +690,7 @@ function renderExEdit(){
   const id=UI.eid;
   // muscle state lookup
   const role=m=>(e.primary||[]).includes(m)?'p':((e.secondary||[]).includes(m)?'s':'');
-  let h=`<div class="backlnk" onclick="go('catalog')">← catalog</div>
+  let h=`<div class="backlnk" onclick="go(EDITP?'catalog':'trainer')">← back</div>
   <div class="hd" style="padding-top:10px">
     <div class="eye"><span>EXERCISE</span><span>${esc(e.original_name)}</span></div>
   </div>
@@ -764,7 +764,54 @@ function renderFocus(){
   </div>`;
 }
 
-let PROGLIST=null, PUBLIST=null, PPDATA=null;
+let PROGLIST=null, PUBLIST=null, PPDATA=null, MYSET=null;
+async function loadMine(){
+  try{
+    const r=await fetch(API+'/exercises?mine=1',{headers:{'Authorization':'Bearer '+syncToken()}});
+    if(r.ok){ const d=await r.json(); MYSET=new Set(d.exercises.map(e=>e.original_name)); }
+  }catch(_){ MYSET=MYSET||new Set(); }
+}
+function renderTrainer(){
+  const tv=UI.tview||'exercises';
+  let h=`<div class="hd"><div class="eye"><span>STUDIO</span><span>${esc(localStorage.getItem('duro_email')||'')}</span></div>
+    <div class="trow"><div class="ttl">trainer</div></div>
+    <div style="margin-top:14px" class="seg">
+      <button class="${tv==='exercises'?'on':''}" onclick="UI.tview='exercises';render()">my exercises</button>
+      <button class="${tv==='programs'?'on':''}" onclick="UI.tview='programs';render()">my programs</button>
+    </div></div><div class="list">`;
+  if(tv==='exercises'){
+    if(MYSET===null){ h+='<div class="empty">loading…</div>'; loadMine().then(render); }
+    else {
+      const mine=CAT.exercises.filter(e=>MYSET.has(e.original_name));
+      h+=`<div class="addrow" onclick="newExercise()">+ new exercise</div>`;
+      if(!mine.length) h+='<div class="empty">no exercises yet — create your first</div>';
+      for(const e of mine){
+        h+=`<div class="row">${mediaHTML(e.original_name)}<div class="rb" onclick="editExercise('${esc(e.original_name)}')">
+          <div class="rtop"><span class="exn" style="font-size:17px">${esc(e.suggested_name)}</span><span class="goal">${(e.goals||[])[0]||''}</span></div>
+          <div class="tags">${tagsHTML(e)}</div></div></div>`;
+      }
+    }
+  } else {
+    if(PROGLIST===null){ h+='<div class="empty">loading…</div>';
+      fetch(API+'/programs',{headers:{'Authorization':'Bearer '+syncToken()}}).then(r=>r.json()).then(d=>{PROGLIST=d.programs||[];render();}).catch(()=>{PROGLIST=[];render();});
+    } else {
+      h+=`<div class="addrow" onclick="newProgram()">+ new program</div>`;
+      if(!PROGLIST.length) h+='<div class="empty">no programs yet — create one and build it</div>';
+      for(const p of PROGLIST){
+        h+=`<div class="row"><div class="rb" onclick="editProgram('${p.public_id}')">
+          <div class="rtop"><span class="exn" style="font-size:17px">${esc(p.name)}</span>
+          <span class="goal" style="${p.published?'color:var(--red-ink)':''}">${p.published?(p.price_cents?'$'+(p.price_cents/100).toFixed(2):'published · free'):'draft'}</span></div>
+          <div class="tags"><span class="tag sc">${p.exercises} exercises · ${p.series} series</span></div></div>
+          ${p.published?`<button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="shareProgram('${p.public_id}')">link</button>`:''}
+          <button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="togglePublish('${p.public_id}')">${p.published?'unpub':'publish'}</button>
+          <button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="setPrice('${p.public_id}')">$</button>
+          <button class="rm" onclick="archiveProgram('${p.public_id}')">×</button></div>`;
+      }
+    }
+  }
+  h+=`</div><div class="nav"><button class="on" onclick="go('trainer')">studio</button><button onclick="go('program')">exit to training</button><button onclick="toggleTheme()" style="flex:none;min-width:46px">◐</button></div>`;
+  $.innerHTML=h;
+}
 function renderPrograms(){
   let h=`<div class="hd"><div class="eye"><span>MY PROGRAMS</span></div>
     <div class="trow"><div class="ttl">programs</div></div></div><div class="list">`;
@@ -832,6 +879,7 @@ window.newProgram=async()=>{
   PROGLIST=null; const p=await r.json(); toast('created'); editProgram(p.public_id);
 };
 window.editProgram=async pid=>{
+  if(MYSET===null) await loadMine();
   const r=await fetch(API+'/programs/'+pid,{headers:{'Authorization':'Bearer '+syncToken()}});
   if(!r.ok){toast('failed');return;}
   const d=await r.json();
@@ -844,11 +892,11 @@ window.saveProgram=async()=>{
   const r=await fetch(API+'/programs/'+EDITP.pid,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({content})});
   if(!r.ok){toast('save failed');return;}
   DB.program=EDITP.stash.program; DB.series=EDITP.stash.series; EDITP=null;
-  PROGLIST=null; toast('program saved'); go('programs');
+  PROGLIST=null; toast('program saved'); go('trainer');
 };
 window.discardProgram=()=>{
   DB.program=EDITP.stash.program; DB.series=EDITP.stash.series; EDITP=null;
-  toast('discarded'); go('programs');
+  toast('discarded'); go('trainer');
 };
 window.togglePublish=async pid=>{
   const p=PROGLIST.find(x=>x.public_id===pid);
@@ -941,10 +989,11 @@ function seedSession(){
 }
 
 // actions
-const ROUTEPATHS={find:'/find',program:'/program',session:'/session'};
+const ROUTEPATHS={find:'/find',program:'/program',session:'/session',trainer:'/trainer'};
 function applyPath(p){
   if(p.startsWith('/p/')){ UI.ppid=p.slice(3); PPDATA=null; UI.screen='progpage'; }
-  else UI.screen={'/find':'find','/session':'session','/program':'program','/':'program'}[p]||'program';
+  else UI.screen={'/find':'find','/session':'session','/program':'program','/trainer':'trainer','/':'program'}[p]||'program';
+  if(UI.screen==='trainer'&&!canAuthor()) UI.screen='program';
 }
 window.go=s=>{ UI.screen=s;
   if(ROUTEPATHS[s]) history.pushState(null,'',ROUTEPATHS[s]);
@@ -986,7 +1035,7 @@ window.accountMenu=()=>{
   d.innerHTML=`<div class="lb">account</div>
     <div style="font-family:var(--mono);font-size:12px;color:var(--ink-2);padding:2px 0 8px">${esc(em)}</div>
     ${hasTrainer()?`<div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-bottom:4px">${isTrainer()?'trainer':'trainee view'}</div>`:''}
-    ${hasTrainer()?`<button class="act" onclick="closeCtx();toggleView()">${isTrainer()?'view as trainee':'back to trainer view'}</button>`:''}
+    ${canAuthor()?`<button class="act" onclick="closeCtx();go('trainer')">trainer studio →</button>`:''}
     <button class="act red" onclick="closeCtx();authAbort()">sign out</button>`;
   document.body.appendChild(d);
 };
@@ -1093,13 +1142,12 @@ function buildCtx(id){
   const e=EXBY[id], inn=inSession(id);
   return `<div class="lb">tags</div>
     ${tagPicker(id)}
-    ${isTrainer()?`<div class="lb">frequency / cycle</div>
+    ${EDITP?`<div class="lb">frequency / cycle</div>
     <div class="fopts">${FREQS.map(f=>`<button class="fopt ${p.freq===f?'on':''}" onclick="ctxFreq('${esc(id)}','${f}')">${f==='every'?'every session':f+'×'}</button>`).join('')}</div>`:''}
     <div style="height:8px"></div>
     <button class="act" onclick="closeCtx();toggleSession('${esc(id)}')">${inn?'remove from session':'add to session'}</button>
     <button class="act" onclick="closeCtx();showDetail('${esc(id)}','program')">details</button>
-    ${isTrainer()?`<button class="act" onclick="closeCtx();editExercise('${esc(id)}')">edit exercise</button>
-    <button class="act red" onclick="closeCtx();removeFromProgram('${esc(id)}')">remove from program</button>`:''}`;
+    ${EDITP?`<button class="act red" onclick="closeCtx();removeFromProgram('${esc(id)}')">remove from program</button>`:''}`;
 }
 window.openCtx=(x,y,id)=>{
   closeCtx(); if(!progEntry(id)) return;
