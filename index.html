@@ -191,6 +191,12 @@
   .fmeta{padding:0 20px 14px;display:flex;flex-wrap:wrap;gap:6px;}
   .fdone{flex:none;margin:0 16px calc(16px + env(safe-area-inset-bottom));}
   .fdone .go{width:100%;padding:20px;font-size:19px;border-radius:14px;}
+  /* desktop trainer builder */
+  body.deskbuild #app{max-width:1400px;}
+  .builder{flex:1;display:flex;min-height:0;}
+  .builder .pane{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+  .builder .pane:first-child{border-right:2px solid var(--ink);}
+  .builder .pane .hd{padding-top:24px;}
   /* account avatar */
   .avatar{position:fixed;top:14px;right:14px;z-index:30;width:38px;height:38px;border-radius:50%;
     background:var(--ink);color:var(--paper);font-family:var(--mono);font-weight:700;font-size:14px;
@@ -335,10 +341,13 @@ function plannedByRegion(){
 const authed=()=>!!(syncToken()&&localStorage.getItem('duro_email')&&localStorage.getItem('duro_profile')==='1');
 const hasTrainer=()=>localStorage.getItem('duro_trainer')==='1';
 const isTrainer=()=>hasTrainer()&&localStorage.getItem('duro_view_trainee')!=='1';
+const deskBuild=()=>isTrainer()&&window.innerWidth>=1000;
 function render(){
   if(!authed()) return renderAuth();
   if(!isTrainer()&&['catalog','exedit','seredit'].includes(UI.screen)) UI.screen='program';
-  if(UI.screen==='catalog') renderCatalog();
+  document.body.classList.toggle('deskbuild',deskBuild());
+  if(deskBuild()&&(UI.screen==='catalog'||UI.screen==='program')) renderBuilder();
+  else if(UI.screen==='catalog') renderCatalog();
   else if(UI.screen==='seredit') renderSeriesEditor();
   else if(UI.screen==='exedit') renderExEdit();
   else if(UI.screen==='exdetail') renderExDetail();
@@ -505,7 +514,7 @@ window.authProfile=async()=>{
   }catch(e){ toast('cannot reach api.duro.fit'); }
 };
 
-function renderCatalog(){
+function catalogHTML(){
   let list=CAT.exercises.slice();
   if(UI.goal!=='all') list=list.filter(e=>(e.goals||[]).includes(UI.goal));
   if(UI.filter!=='all') list=list.filter(e=>UI.filter in exGroups(e));
@@ -537,11 +546,12 @@ function renderCatalog(){
     h+=list.map(catRow).join('');
     if(!list.length) h+='<div class="empty">no exercises match</div>';
   }
-  h+=`</div>${nav()}`;
-  $.innerHTML=h;
+  h+=`</div>`;
+  return h;
 }
+function renderCatalog(){ $.innerHTML=catalogHTML()+nav(); }
 
-function renderProgram(){
+function programHTML(){
   const cov=coverage(), plan=plannedByRegion();
   let entries=DB.program.map(p=>({p,e:EXBY[p.id]})).filter(x=>x.e);
   if(UI.goal!=='all') entries=entries.filter(x=>(x.e.goals||[]).includes(UI.goal));
@@ -615,8 +625,11 @@ function renderProgram(){
       <div class="addrow" onclick="accountMenu()">⇅ ${localStorage.getItem('duro_email')||''}</div></div>`;
   if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
   else h+=`<div class="bar empty"><span class="hint">tap exercises to build today's session</span></div>`;
-  h+=nav();
-  $.innerHTML=h;
+  return h;
+}
+function renderProgram(){ $.innerHTML=programHTML()+nav(); }
+function renderBuilder(){
+  $.innerHTML=`<div class="builder"><div class="pane">${catalogHTML()}</div><div class="pane">${programHTML()}</div></div>`+nav();
 }
 
 function renderSeriesEditor(){
@@ -993,6 +1006,8 @@ Promise.all([
   render();
   pullState();
 }).catch(e=>{$.innerHTML='<div class="empty">failed to load — '+esc(String(e))+'</div>';});
+let _rzT=null;
+addEventListener('resize',()=>{ clearTimeout(_rzT); _rzT=setTimeout(()=>{ if(authed())render(); },200); });
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body></html>
