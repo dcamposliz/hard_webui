@@ -240,6 +240,8 @@ async function pullState(){
     const r=await fetch(API+'/state',{headers:{'Authorization':'Bearer '+syncToken()}});
     if(!r.ok) return;
     const d=await r.json();
+    if(d.profile_complete===false){ localStorage.removeItem('duro_profile'); UI.authStage='profile'; render(); return; }
+    if(d.profile_complete===true) localStorage.setItem('duro_profile','1');
     const known=localStorage.getItem('duro_sync_at')||'';
     if(d.state&&Object.keys(d.state).length&&d.updated_at!==known){
       DB=Object.assign(DB,d.state); localStorage.setItem('hard_mvp',JSON.stringify(DB));
@@ -321,7 +323,7 @@ function plannedByRegion(){
   return c;
 }
 
-const authed=()=>!!(syncToken()&&localStorage.getItem('duro_email'));
+const authed=()=>!!(syncToken()&&localStorage.getItem('duro_email')&&localStorage.getItem('duro_profile')==='1');
 function render(){
   if(!authed()) return renderAuth();
   if(UI.screen==='catalog') return renderCatalog();
@@ -383,7 +385,8 @@ function serFreqHTML(s){
 }
 
 function renderAuth(){
-  const stage=UI.authStage||'email';
+  let stage=UI.authStage;
+  if(!stage) stage=(syncToken()&&localStorage.getItem('duro_email'))?'profile':'email';
   let h=`<div class="complete" style="justify-content:center;padding:24px">
     <div class="ce">DURO · TRAIN HARD</div>
     <h1 style="font-size:64px;margin:10px 0 6px">duro</h1>
@@ -393,6 +396,21 @@ function renderAuth(){
     <input class="txt" id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(UI.authEmail||'')}" style="max-width:340px">
     <div style="height:14px"></div>
     <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SEND LOGIN CODE →</button>`;
+  } else if(stage==='profile'){
+    h+=`<div class="sl" style="margin-bottom:6px">one more step — tell us who's training</div>
+    <input class="txt" id="pFirst" placeholder="first name / nombre" autocomplete="given-name" style="max-width:340px;margin-bottom:10px">
+    <input class="txt" id="pLast" placeholder="last name / apellido" autocomplete="family-name" style="max-width:340px;margin-bottom:10px">
+    <div style="display:flex;gap:8px;max-width:340px;width:100%;margin-bottom:10px">
+      <select id="pCC" class="txt" style="flex:none;width:110px" onchange="if(this.value==='x'){this.outerHTML='<input class=txt id=pCC value=+ style=flex:none;width:110px>'}">
+        <option value="+1">🇺🇸 +1</option><option value="+52">🇲🇽 +52</option><option value="x">other…</option>
+      </select>
+      <input class="txt" id="pPhone" inputmode="tel" autocomplete="tel-national" placeholder="phone number" style="flex:1">
+    </div>
+    <div style="display:flex;gap:8px;max-width:340px;width:100%;margin-bottom:14px">
+      <span class="evtog ${(UI.pLang||'en')==='en'?'on':''}" style="flex:1;justify-content:center" onclick="UI.pLang='en';render()">english</span>
+      <span class="evtog ${UI.pLang==='es'?'on':''}" style="flex:1;justify-content:center" onclick="UI.pLang='es';render()">español</span>
+    </div>
+    <button class="go" style="max-width:340px;width:100%" onclick="authProfile()">START TRAINING →</button>`;
   } else {
     h+=`<div class="sl">6-digit code sent to <b>${esc(UI.authEmail)}</b></div>
     <input class="txt" id="authCode" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6" style="max-width:340px;font-size:24px;letter-spacing:.3em;text-align:center">
@@ -426,8 +444,28 @@ window.authVerify=async()=>{
     localStorage.setItem('duro_sync_token',d.token);
     localStorage.setItem('duro_email',d.email);
     localStorage.removeItem('duro_sync_at');
-    UI.authStage='email';
+    if(!d.profile_complete){ UI.authStage='profile'; render(); return; }
+    localStorage.setItem('duro_profile','1');
+    UI.authStage=null;
     await pullState(); pushState(); toast('signed in');
+    UI.screen=(DB.program.length||DB.series.length)?'program':'catalog';
+    render();
+  }catch(e){ toast('cannot reach api.duro.fit'); }
+};
+window.authProfile=async()=>{
+  const f=(document.getElementById('pFirst').value||'').trim();
+  const l=(document.getElementById('pLast').value||'').trim();
+  const cc=(document.getElementById('pCC').value||'').trim();
+  const ph=(document.getElementById('pPhone').value||'').replace(/[^0-9]/g,'');
+  if(!f||!l){ toast('name required'); return; }
+  if(!ph){ toast('phone required'); return; }
+  try{
+    const r=await fetch(API+'/profile',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},
+      body:JSON.stringify({first_name:f,last_name:l,phone:cc+ph,language:UI.pLang||'en'})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); toast(e.error||'check the fields'); return; }
+    localStorage.setItem('duro_profile','1');
+    UI.authStage=null;
+    await pullState(); pushState(); toast('welcome');
     UI.screen=(DB.program.length||DB.series.length)?'program':'catalog';
     render();
   }catch(e){ toast('cannot reach api.duro.fit'); }
@@ -745,7 +783,7 @@ window.cycleSort=()=>{ UI.sort=SORTS[(SORTS.indexOf(UI.sort)+1)%SORTS.length]; r
 window.accountMenu=()=>{
   const em=localStorage.getItem('duro_email');
   const keep=confirm('signed in as '+em+'\nsync is on across your devices.\n\nOK = stay signed in · Cancel = sign out');
-  if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); localStorage.removeItem('duro_email'); toast('signed out'); render(); }
+  if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); localStorage.removeItem('duro_email'); localStorage.removeItem('duro_profile'); toast('signed out'); render(); }
 };
 window.toggleTheme=()=>{ const t=document.body.dataset.theme==='dark'?'light':'dark';
   document.body.dataset.theme=t; localStorage.setItem('hard_theme',t); };
