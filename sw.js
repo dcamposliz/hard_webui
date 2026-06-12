@@ -1,5 +1,5 @@
-const CACHE='hard-v3';
-const CORE=['./','./docs/exercise-catalog.json','./docs/muscle-region-map.json','./media/manifest.json'];
+const CACHE='hard-v4';
+const CORE=['./','./docs/muscle-region-map.json','./media/manifest.json'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
