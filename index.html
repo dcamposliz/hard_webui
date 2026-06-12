@@ -393,9 +393,11 @@ function renderAuth(){
     <div class="sl" style="margin-bottom:28px">coverage, not logging. sign in to train.</div>`;
   if(stage==='email'){
     h+=`<div class="lb" style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px">email</div>
-    <input class="txt" id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(UI.authEmail||'')}" style="max-width:340px">
+    <input class="txt" id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(UI.authEmail||'')}" style="max-width:340px;margin-bottom:10px">
+    <input class="txt" id="authInvite" placeholder="invite code — new accounts only" value="${esc(UI.invite||'')}" style="max-width:340px;text-transform:uppercase">
     <div style="height:14px"></div>
-    <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SEND LOGIN CODE →</button>`;
+    <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SEND LOGIN CODE →</button>
+    <div class="legendln" style="max-width:340px">alpha is invite-only. returning users can leave the invite blank.</div>`;
   } else if(stage==='profile'){
     h+=`<div class="sl" style="margin-bottom:6px">one more step — tell us who's training</div>
     <input class="txt" id="pFirst" placeholder="first name / nombre" autocomplete="given-name" style="max-width:340px;margin-bottom:10px">
@@ -427,8 +429,10 @@ window.authSend=async()=>{
   const email=(document.getElementById('authEmail').value||'').trim().toLowerCase();
   if(!email.includes('@')){ toast('enter a valid email'); return; }
   UI.authEmail=email;
+  UI.invite=(document.getElementById('authInvite').value||'').trim().toUpperCase();
   try{
-    const r=await fetch(API+'/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+    const r=await fetch(API+'/auth/request-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,invite:UI.invite})});
+    if(r.status===403){ toast('valid invite code required'); return; }
     if(!r.ok){ toast('could not send code'); return; }
     UI.authStage='code'; render();
   }catch(e){ toast('cannot reach api.duro.fit'); }
@@ -438,7 +442,7 @@ window.authVerify=async()=>{
   if(code.length<6){ toast('enter the 6-digit code'); return; }
   try{
     const r=await fetch(API+'/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:UI.authEmail,code,sync_token:syncToken()||undefined})});
+      body:JSON.stringify({email:UI.authEmail,code,invite:UI.invite||'',sync_token:syncToken()||undefined})});
     if(!r.ok){ toast('bad or expired code'); return; }
     const d=await r.json();
     localStorage.setItem('duro_sync_token',d.token);
