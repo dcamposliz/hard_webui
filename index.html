@@ -801,9 +801,16 @@ window.focusDone=id=>{ const was=DB.sessDone.includes(id); toggleDone(id);
 window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; render(); };
 window.cycleSort=()=>{ UI.sort=SORTS[(SORTS.indexOf(UI.sort)+1)%SORTS.length]; render(); };
 window.accountMenu=()=>{
-  const em=localStorage.getItem('duro_email');
-  const keep=confirm('signed in as '+em+'\nsync is on across your devices.\n\nOK = stay signed in · Cancel = sign out');
-  if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); localStorage.removeItem('duro_email'); localStorage.removeItem('duro_profile'); toast('signed out'); render(); }
+  if(document.getElementById('ctxm')){ closeCtx(); return; }
+  closeCtx(); CTX={acct:1};
+  const em=localStorage.getItem('duro_email')||'';
+  const d=document.createElement('div'); d.id='ctxm'; d.className='ctx';
+  d.style.top='58px'; d.style.right='14px'; d.style.left='auto';
+  d.innerHTML=`<div class="lb">account</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--ink-2);padding:2px 0 8px">${esc(em)}</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-bottom:4px">sync is on across your devices</div>
+    <button class="act red" onclick="closeCtx();authAbort()">sign out</button>`;
+  document.body.appendChild(d);
 };
 window.toggleTheme=()=>{ const t=document.body.dataset.theme==='dark'?'light':'dark';
   document.body.dataset.theme=t; localStorage.setItem('hard_theme',t); };
