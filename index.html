@@ -237,6 +237,7 @@ async function pushState(){
   if(!syncToken())return;
   try{
     const r=await fetch(API+'/state',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({state:DB})});
+    if(r.status===401){ authAbort(); return; }
     if(r.ok){ const d=await r.json(); localStorage.setItem('duro_sync_at',d.updated_at); }
   }catch(e){} // offline is fine — next save retries
 }
@@ -244,6 +245,7 @@ async function pullState(){
   if(!syncToken())return;
   try{
     const r=await fetch(API+'/state',{headers:{'Authorization':'Bearer '+syncToken()}});
+    if(r.status===401){ authAbort(); return; }
     if(!r.ok) return;
     const d=await r.json();
     if(d.is_trainer!==undefined) localStorage.setItem('duro_trainer',d.is_trainer?'1':'0');
