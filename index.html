@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>HARD</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1C1814">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:oklch(0.967 0.007 85); --paper-2:oklch(0.945 0.009 84); --card:oklch(0.992 0.004 90);
+    --ink:oklch(0.235 0.012 70); --ink-2:oklch(0.46 0.012 72); --ink-3:oklch(0.62 0.010 75);
+    --line:oklch(0.885 0.008 82); --line-2:oklch(0.83 0.010 80);
+    --red:oklch(0.575 0.205 28); --red-ink:oklch(0.47 0.18 28); --red-wash:oklch(0.93 0.045 30);
+    --mono:'JetBrains Mono',ui-monospace,monospace; --grot:'Archivo',system-ui,sans-serif;
+    --in-bg:oklch(0.99 0.01 60); --bar-bg:var(--ink); --bar-fg:oklch(0.967 0.007 85); --bar-dim:oklch(0.72 0.01 80);
+  }
+  body[data-theme="dark"]{
+    --paper:#0b0c10; --paper-2:#14181f; --card:#1a1f2e;
+    --ink:#eaeaea; --ink-2:#9da3af; --ink-3:#6b7280;
+    --line:#2a3441; --line-2:#3a4e61;
+    --red:#e8543c; --red-ink:#ff7a5c; --red-wash:rgba(232,84,60,.12);
+    --in-bg:#1c1512; --bar-bg:#1f2833; --bar-fg:#eaeaea; --bar-dim:#9da3af;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{font-family:var(--grot);background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;}
+  #app{max-width:520px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;overflow-x:clip;}
+  /* header */
+  .hd{flex:none;padding:54px 20px 12px;}
+  .eye{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;align-items:baseline;}
+  .eye .dot{color:var(--red-ink);font-weight:700;}
+  .trow{display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;}
+  .ttl{font-family:var(--grot);font-weight:900;font-size:40px;letter-spacing:-.03em;line-height:.9;text-transform:uppercase;overflow-wrap:anywhere;min-width:0;}
+  .cnt{text-align:right;line-height:1;}
+  .cnt .big{font-weight:900;font-size:34px;letter-spacing:-.02em;line-height:.82;font-variant-numeric:tabular-nums;}
+  .cnt .lbl{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-top:5px;}
+  .meter{margin-top:14px;display:flex;gap:3px;height:5px;}
+  .meter i{flex:1;background:var(--line-2);border-radius:1px;} .meter i.on{background:var(--ink);}
+  /* chips */
+  .chips{flex:none;display:flex;gap:7px;overflow-x:auto;padding:12px 20px 13px;border-bottom:1px solid var(--line);scrollbar-width:none;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{flex:none;border:1px solid var(--line-2);background:var(--card);border-radius:999px;padding:7px 12px 6px;display:flex;align-items:center;gap:7px;position:relative;cursor:pointer;}
+  .chip .nm{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);}
+  .chip .ct{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums;}
+  .chip.owed::after{content:'';position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid var(--paper);}
+  .chip.sel{background:var(--ink);border-color:var(--ink);} .chip.sel .nm{color:var(--paper);} .chip.sel .ct{color:oklch(0.78 0.01 80);}
+  /* list */
+  .list{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
+  .row{position:relative;display:flex;align-items:stretch;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);}
+  .rb{flex:1;min-width:0;}
+  .rtop{display:flex;align-items:baseline;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;}
+  .exn{font-family:var(--grot);font-weight:800;font-size:20px;letter-spacing:-.02em;line-height:.98;text-transform:uppercase;overflow-wrap:anywhere;min-width:0;}
+  .exn.dim2{color:var(--ink-3);font-weight:600;}
+  .goal{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);}
+  .tags{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px 8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;}
+  .tag.pr{color:var(--ink);font-weight:700;} .tag.sc{color:var(--ink-3);font-weight:400;}
+  .gbar{flex:none;display:flex;gap:6px;padding:12px 20px 0;}
+  .gb{background:none;border:1px solid var(--line-2);border-radius:999px;padding:5px 13px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;}
+  .gb.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .rm{flex:none;align-self:center;background:none;border:none;color:var(--ink-3);font-size:15px;line-height:1;cursor:pointer;padding:4px 2px;margin-left:0;}
+  .addrow{padding:16px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line);background:var(--paper-2);cursor:pointer;}
+  /* media thumb */
+  .thumb{flex:none;width:78px;align-self:stretch;min-height:66px;border-radius:10px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,var(--paper-2) 0 6px,var(--card) 6px 12px);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .ply{opacity:.4;font-size:13px;color:var(--ink-2);}
+  .stars{display:flex;gap:5px;margin-top:10px;}
+  .star{font-size:12.5px;line-height:1;color:var(--line-2);cursor:pointer;}
+  .star.on{color:var(--red);}
+  .add{flex:none;align-self:center;width:27px;height:27px;border-radius:50%;border:1.5px solid var(--ink);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;}
+  .row.in{background:var(--in-bg);}
+  .row.in::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--red);}
+  .row.in .add{background:var(--red);border-color:var(--red);color:var(--paper);}
+  .row.in .exn{color:var(--red-ink);}
+  /* freq control */
+  .freq{flex:none;display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-3);cursor:pointer;font-variant-numeric:tabular-nums;}
+  .freq .seg{display:inline-flex;gap:2px;}
+  .freq .seg b{width:6px;height:11px;border-radius:1px;background:var(--line-2);}
+  .freq .seg b.done{background:var(--ink);}
+  .freq .ev{color:var(--red-ink);font-size:9px;letter-spacing:.08em;}
+  /* series */
+  .serhd{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:14px 20px 6px;}
+  .ghd{display:flex;align-items:baseline;gap:10px;padding:15px 20px 9px;background:var(--paper-2);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2;}
+  .ghd .gn{font-family:var(--grot);font-weight:900;font-size:14px;letter-spacing:.03em;text-transform:uppercase;}
+  .ghd .gc{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);}
+  .ser{border-bottom:1px solid var(--line);padding-top:15px;padding-bottom:15px;}
+  .sthumb{box-shadow:4px 4px 0 -1px var(--paper),4px 4px 0 0 var(--line-2),8px 8px 0 -2px var(--paper),8px 8px 0 -1px var(--line);margin-right:6px;flex-direction:column;gap:2px;}
+  .sthumb .ct2{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-2);}
+  .ser .sname{font-family:var(--grot);font-weight:800;font-size:20px;letter-spacing:-.02em;text-transform:uppercase;overflow-wrap:anywhere;min-width:0;}
+  .ser .smeta{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-top:5px;display:flex;gap:10px;}
+  .ser .smeta .ev{color:var(--red-ink);font-weight:700;}
+  .ordrow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--line);}
+  .ordrow .num{flex:none;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-3);width:18px;text-align:right;}
+  .ordrow .exn{flex:1;font-size:17px;}
+  .ordrow .mv{flex:none;background:none;border:1px solid var(--line-2);border-radius:7px;color:var(--ink-2);width:30px;height:30px;font-size:14px;cursor:pointer;}
+  .evtog{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);border:1px solid var(--line-2);border-radius:999px;padding:7px 13px;cursor:pointer;}
+  .evtog.on{background:var(--red);border-color:var(--red);color:var(--paper);font-weight:700;}
+  /* session rows */
+  .srow{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);}
+  .srow .exn{flex:1;}
+  .srow .num{flex:none;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-3);width:18px;text-align:right;}
+  .done-c{flex:none;width:42px;height:42px;border-radius:50%;border:2px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:20px;}
+  .srow.done .done-c{background:var(--red);border-color:var(--red);color:var(--paper);}
+  .srow.done .exn{color:var(--ink-3);text-decoration:line-through;}
+  .shd{display:flex;align-items:center;gap:10px;padding:14px 18px 8px;background:var(--paper-2);border-bottom:1px solid var(--line);}
+  .shd .t{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);flex:1;}
+  .shd .c{font-family:var(--mono);font-size:10px;color:var(--ink-3);}
+  /* bottom bar */
+  .bar{flex:none;background:var(--bar-bg);color:var(--bar-fg);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px;}
+  .bar.empty{background:var(--card);color:var(--ink-3);border-top:1px solid var(--line);justify-content:center;}
+  .bar .hint{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);}
+  .bi{flex:1;min-width:0;}
+  .be{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--bar-dim);}
+  .bl{display:flex;align-items:center;gap:9px;margin-top:4px;}
+  .bn{font-weight:900;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;}
+  .track{flex:1;height:4px;border-radius:2px;background:oklch(0.42 0.01 75);overflow:hidden;} .track i{display:block;height:100%;background:var(--red);}
+  .go{flex:none;background:var(--red);color:var(--paper);border:none;border-radius:11px;padding:13px 18px;font-family:var(--grot);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;}
+  /* complete */
+  .complete{flex:1;display:flex;flex-direction:column;padding:60px 24px 24px;overflow-y:auto;min-height:0;}
+  .complete .ce{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .complete .chk{width:54px;height:54px;border-radius:50%;background:var(--red);color:var(--paper);display:flex;align-items:center;justify-content:center;font-size:30px;margin:18px 0 10px;}
+  .complete h1{font-family:var(--grot);font-weight:900;font-size:52px;letter-spacing:-.03em;margin:0;text-transform:uppercase;}
+  .complete .sl{color:var(--ink-2);font-family:var(--mono);font-size:13px;margin:8px 0 22px;}
+  .covlist{flex:1;}
+  .cov{padding:11px 0;border-bottom:1px solid var(--line);}
+  .cov .ct{display:flex;justify-content:space-between;align-items:baseline;}
+  .cov .cn{font-family:var(--grot);font-weight:800;font-size:16px;text-transform:uppercase;}
+  .cov .cm{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.06em;}
+  .cov .cm .ok{color:var(--red-ink);font-weight:700;}
+  .cbar{height:7px;border-radius:3px;background:var(--line-2);margin-top:7px;overflow:hidden;display:flex;}
+  .cbar .prev{height:100%;background:var(--ink);} .cbar .gain{height:100%;background:var(--red);}
+  /* nav */
+  .nav{flex:none;display:flex;border-top:1px solid var(--line);background:var(--paper);}
+  .nav button{flex:1;background:none;border:none;padding:12px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;}
+  .nav button.on{color:var(--ink);font-weight:700;}
+  .empty{color:var(--ink-3);font-family:var(--mono);font-size:13px;padding:40px 20px;text-align:center;}
+  .backlnk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;padding:18px 20px 12px;min-height:48px;}
+  /* exercise editor */
+  .txt{background:var(--card);border:1px solid var(--line-2);color:var(--ink);padding:10px 12px;border-radius:9px;font-size:16px;font-family:var(--grot);font-weight:700;width:100%;outline:none;}
+  .efield{padding:14px 20px;border-bottom:1px solid var(--line);}
+  .efield .lb{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px;}
+  .ethumb{width:96px;height:96px;min-height:96px;align-self:auto;border-radius:14px;}
+  .mpills{display:flex;flex-wrap:wrap;gap:6px;}
+  .mpill{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;text-transform:lowercase;border:1px solid var(--line-2);border-radius:999px;padding:5px 11px;color:var(--ink-3);cursor:pointer;}
+  .mpill.p{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:700;}
+  .mpill.s{background:var(--paper-2);border-color:var(--line-2);color:var(--ink-2);}
+  .mreg{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:12px 0 6px;}
+  .legendln{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:10px;letter-spacing:.04em;}
+  /* color coding */
+  .cdot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--line-2);display:inline-block;flex:none;cursor:pointer;}
+  .cpal{display:flex;gap:12px;flex-wrap:wrap;}
+  .cpal .cdot{width:28px;height:28px;}
+  .cdot.onsel{outline:2px solid var(--ink);outline-offset:2px;}
+  /* exercise detail */
+  .dthumb{width:100%;max-width:340px;height:200px;min-height:200px;align-self:auto;border-radius:16px;}
+  .dthumb img,.dthumb video{object-fit:cover;}
+  .dmeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  /* drag */
+  .dh{flex:none;align-self:center;color:var(--ink-3);font-size:14px;padding:6px 5px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .lift{opacity:.45;background:var(--paper-2);}
+  /* tags (trello-style labels) */
+  .tline{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;}
+  .tpill{display:inline-block;border-radius:5px;padding:1.5px 8px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--tc,#888);}
+  .tpick{display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 11px;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border:1.5px solid var(--tc,#888);color:var(--tc,#888);background:none;}
+  .tpick.on{background:var(--tc,#888);color:#fff;}
+  .tpicks{display:flex;flex-wrap:wrap;gap:7px;}
+  /* context menu */
+  .ctx{position:fixed;z-index:60;background:var(--card);border:1px solid var(--line-2);border-radius:13px;
+    box-shadow:0 16px 36px rgba(30,26,22,.22);padding:12px;min-width:210px;max-width:260px;}
+  .ctx .lb{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:8px 0 6px;}
+  .ctx .lb:first-child{margin-top:0;}
+  .ctx .cpal{gap:8px;} .ctx .cpal .cdot{width:22px;height:22px;}
+  .ctx .fopts{display:flex;gap:5px;flex-wrap:wrap;}
+  .ctx .fopt{font-family:var(--mono);font-size:10px;border:1px solid var(--line-2);border-radius:999px;padding:4px 10px;color:var(--ink-2);cursor:pointer;background:none;}
+  .ctx .fopt.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .ctx .act{display:block;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);padding:10px 2px;cursor:pointer;margin-top:2px;}
+  .ctx .act.red{color:var(--red-ink);}
+  /* focus mode */
+  .focus{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .fmedia{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--paper-2);border-bottom:1px solid var(--line);overflow:hidden;}
+  .fmedia img,.fmedia video{max-width:100%;max-height:100%;object-fit:contain;}
+  .fmedia .ply{font-size:42px;opacity:.25;}
+  .fname{font-family:var(--grot);font-weight:900;font-size:28px;letter-spacing:-.02em;text-transform:uppercase;line-height:1;padding:16px 20px 4px;overflow-wrap:anywhere;}
+  .fmeta{padding:0 20px 14px;display:flex;flex-wrap:wrap;gap:6px;}
+  .fdone{flex:none;margin:0 16px calc(16px + env(safe-area-inset-bottom));}
+  .fdone .go{width:100%;padding:20px;font-size:19px;border-radius:14px;}
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(8px);background:var(--bar-bg);color:var(--bar-fg);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:9px 16px;border-radius:999px;
+    opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:50;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body><div id="app"></div>
+<script>
+const GROUPS=['neck','shoulders','back','chest','arms','core','legs']; // top -> down
+const FREQS=[1,2,3,'every'];
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+let CAT=null,M2R={},EXBY={},MEDIA={},COMMON={};
+const disp=s=>{ const c=COMMON[s]; return c?`${s} (${c})`:s; };
+const slug=s=>(''+s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function mediaSrc(id){
+  if(DB.media&&DB.media[id]) return DB.media[id];           // user-uploaded (data URL)
+  const f=MEDIA[slug(id)]; return f?('media/'+f):null;      // file dropped into /media
+}
+function mediaHTML(id,cls){
+  const src=mediaSrc(id);
+  if(!src) return `<div class="thumb ${cls||''}"><span class="ply">▶</span></div>`;
+  if(/\.(mp4|webm|mov)$/i.test(src)||/^data:video/.test(src)) return `<div class="thumb ${cls||''}"><video src="${src}" muted loop autoplay playsinline></video></div>`;
+  return `<div class="thumb ${cls||''}"><img src="${src}" alt="" loading="lazy"></div>`;
+}
+let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},edits:{},media:{},tags:[],exTags:{}};
+let UI={screen:'program',filter:'all',goal:'all',sort:'manual',sid:null,eid:null,did:null,from:'program',showFilters:false,manageTags:false,sprintOpen:true,openSer:{},openSesSer:{},fid:null};
+const SORTS=['manual','tag','region','az'];
+const SORTLBL={manual:'my order',tag:'tag',region:'region',az:'a–z'};
+const $=document.getElementById('app');
+const esc=s=>(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=> 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const API='https://api.duro.fit/v1';
+const syncToken=()=>localStorage.getItem('duro_sync_token')||'';
+let _pushT=null;
+function schedulePush(){ if(!syncToken())return; clearTimeout(_pushT); _pushT=setTimeout(pushState,1500); }
+async function pushState(){
+  if(!syncToken())return;
+  try{
+    const r=await fetch(API+'/state',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({state:DB})});
+    if(r.ok){ const d=await r.json(); localStorage.setItem('duro_sync_at',d.updated_at); }
+  }catch(e){} // offline is fine — next save retries
+}
+async function pullState(){
+  if(!syncToken())return;
+  try{
+    const r=await fetch(API+'/state',{headers:{'Authorization':'Bearer '+syncToken()}});
+    if(!r.ok) return;
+    const d=await r.json();
+    const known=localStorage.getItem('duro_sync_at')||'';
+    if(d.state&&Object.keys(d.state).length&&d.updated_at!==known){
+      DB=Object.assign(DB,d.state); localStorage.setItem('hard_mvp',JSON.stringify(DB));
+      localStorage.setItem('duro_sync_at',d.updated_at); render(); toast('synced');
+    }
+  }catch(e){}
+}
+const save=()=>{ localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
+let _toastT=null;
+function toast(msg){
+  let t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+  t.textContent=msg||'saved'; t.classList.add('show');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),1300);
+}
+const load=()=>{try{
+  const raw=JSON.parse(localStorage.getItem('hard_mvp')||'{}');
+  DB=Object.assign(DB,raw);
+  DB.series=DB.series||[]; DB.sessDone=DB.sessDone||[]; DB.doneCount=DB.doneCount||{}; DB.serDone=DB.serDone||{};
+  DB.edits=DB.edits||{}; DB.media=DB.media||{};
+  DB.tags=DB.tags||[]; DB.exTags=DB.exTags||{};
+  // migrate old per-entry colors -> tags
+  (DB.program||[]).forEach(p=>{ if(p.color>0){
+    let t=DB.tags.find(t=>t.color===COLORS[p.color]);
+    if(!t){ t={id:'t'+Math.random().toString(36).slice(2,8),name:'cluster '+(DB.tags.length+1),color:COLORS[p.color]}; DB.tags.push(t); }
+    DB.exTags[p.id]=DB.exTags[p.id]||[]; if(!DB.exTags[p.id].includes(t.id)) DB.exTags[p.id].push(t.id);
+    delete p.color; } });
+  DB.series.forEach(s=>{ if(!('freq' in s)) s.freq=s.every?'every':1; });
+  // migrations: program of plain ids -> {id,freq}; old done list -> doneCount; old session strings -> items
+  DB.program=(DB.program||[]).map(p=>typeof p==='string'?{id:p,freq:1}:p);
+  if(Array.isArray(raw.done)){ raw.done.forEach(id=>{DB.doneCount[id]=(DB.doneCount[id]||0)+1;}); delete DB.done; }
+  DB.session=(DB.session||[]).map(it=>typeof it==='string'?{k:'e',id:it}:it);
+}catch(e){}};
+const serById=sid=>DB.series.find(s=>s.id===sid);
+const progEntry=id=>DB.program.find(p=>p.id===id);
+const seriesOf=id=>DB.series.find(s=>s.exIds.includes(id));
+const inProgram=id=>!!progEntry(id)||!!seriesOf(id); // a series member IS in the program
+
+// completion counts this cycle (folded sessions + current session checks)
+const countOf=id=>(DB.doneCount[id]||0)+(DB.sessDone.includes(id)?1:0);
+
+// session items: {k:'s',sid} | {k:'e',id}
+function sessionLeaves(){
+  const out=[];
+  for(const it of DB.session){
+    if(it.k==='s'){ const s=serById(it.sid); if(s) s.exIds.forEach(id=>{if(!out.includes(id))out.push(id);}); }
+    else if(!out.includes(it.id)) out.push(it.id);
+  }
+  return out;
+}
+const inSession=id=>sessionLeaves().includes(id);
+const seriesInSession=sid=>DB.session.some(it=>it.k==='s'&&it.sid===sid);
+
+function exGroups(e){
+  const o={};
+  (e.secondary||[]).forEach(m=>(M2R[m]||[]).forEach(r=>{if(!o[r])o[r]='sec';}));
+  (e.primary||[]).forEach(m=>(M2R[m]||[]).forEach(r=>o[r]='pri'));
+  return o;
+}
+const priGroups=e=>Object.entries(exGroups(e)).filter(([g,r])=>r==='pri').map(([g])=>g);
+const homeRegion=e=>GROUPS.find(g=>exGroups(e)[g]==='pri')||null; // first primary region, body order
+function coverage(){ // region -> count of primary hits this cycle (weighted by completion counts)
+  const c={}; GROUPS.forEach(g=>c[g]=0);
+  const ids=new Set([...Object.keys(DB.doneCount),...DB.sessDone]);
+  ids.forEach(id=>{ const e=EXBY[id]; if(!e) return; const n=countOf(id); if(n>0) priGroups(e).forEach(g=>{if(g in c)c[g]+=n;}); });
+  return c;
+}
+function coverageFrom(map){ // from a plain {id:count} map
+  const c={}; GROUPS.forEach(g=>c[g]=0);
+  Object.entries(map).forEach(([id,n])=>{ const e=EXBY[id]; if(e&&n>0) priGroups(e).forEach(g=>{if(g in c)c[g]+=n;}); });
+  return c;
+}
+// the contract: planned primary hits per region this cycle, derived from the program
+// (numeric freqs only — 'every session' items are ambient, not countable slots)
+function plannedByRegion(){
+  const c={}; GROUPS.forEach(g=>c[g]=0);
+  DB.program.filter(p=>p.freq!=='every').forEach(p=>{ const e=EXBY[p.id]; if(e) priGroups(e).forEach(g=>{if(g in c)c[g]+=p.freq;}); });
+  DB.series.filter(s=>s.freq!=='every').forEach(s=>{ s.exIds.forEach(id=>{ const e=EXBY[id]; if(e) priGroups(e).forEach(g=>{if(g in c)c[g]+=s.freq;}); }); });
+  return c;
+}
+
+function render(){
+  if(UI.screen==='catalog') return renderCatalog();
+  if(UI.screen==='program') return renderProgram();
+  if(UI.screen==='seredit') return renderSeriesEditor();
+  if(UI.screen==='exedit') return renderExEdit();
+  if(UI.screen==='exdetail') return renderExDetail();
+  if(UI.screen==='focus') return renderFocus();
+  if(UI.screen==='session') return renderSession();
+  if(UI.screen==='complete') return renderComplete();
+}
+function nav(){
+  const n=sessionLeaves().length;
+  return `<div class="nav">
+    <button class="${UI.screen==='catalog'?'on':''}" onclick="go('catalog')">catalog</button>
+    <button class="${UI.screen==='program'||UI.screen==='seredit'?'on':''}" onclick="go('program')">program ${DB.program.length+DB.series.length?'· '+(DB.program.length+DB.series.length):''}</button>
+    <button class="${UI.screen==='session'?'on':''}" onclick="go('session')">session ${n?'· '+n:''}</button>
+    <button onclick="toggleTheme()" style="flex:none;min-width:46px" title="theme">◐</button>
+  </div>`;
+}
+const goalBtns=()=>['all','mobility','hypertrophy','therapy'].map(g=>`<button class="gb ${UI.goal===g?'on':''}" onclick="setGoal('${g}')">${g}</button>`).join('');
+function filterBar(showSort){
+  const active=[UI.goal!=='all'?UI.goal:null, UI.filter!=='all'?cap(UI.filter):null].filter(Boolean);
+  return `<div class="gbar"><button class="gb ${UI.showFilters?'on':''}" onclick="toggleFilters()">filters ${UI.showFilters?'▾':'▸'}</button>`+
+    (showSort?`<button class="gb ${UI.sort!=='manual'?'on':''}" onclick="cycleSort()">sort: ${SORTLBL[UI.sort]}</button>`:'')+
+    (!UI.showFilters&&active.length?`<button class="gb on" onclick="clearFilters()">${active.join(' · ')} ×</button>`:'')+`</div>`;
+}
+function tagsHTML(e){
+  return GROUPS.filter(g=>g in exGroups(e)).map(g=>`<span class="tag ${exGroups(e)[g]==='pri'?'pr':'sc'}">${cap(g)}</span>`).join('');
+}
+// primary/other dichotomy under an active region filter: primary bold ink, secondary light gray
+const nameCls=e=>(UI.filter!=='all'&&exGroups(e)[UI.filter]==='sec')?'exn dim2':'exn';
+// color coding — program entries carry a color; clusters can become sessions
+const COLORS=['', '#F59F00', '#E8590C', '#D6336C', '#581C87', '#16335E', '#14532D', '#3A3F45'];
+// tags — trello-style labels; many-to-many with exercises
+const tagById=tid=>DB.tags.find(t=>t.id===tid);
+const tagsOf=id=>((DB.exTags||{})[id]||[]).map(tagById).filter(Boolean);
+const tagLine=id=>{ const ts=tagsOf(id); return ts.length?`<div class="tline">${ts.map(t=>`<span class="tpill" style="--tc:${t.color}">${esc(t.name)}</span>`).join('')}</div>`:''; };
+const tagPicker=id=>`<div class="tpicks">${DB.tags.map(t=>{ const on=((DB.exTags||{})[id]||[]).includes(t.id);
+    return `<span class="tpick ${on?'on':''}" style="--tc:${t.color}" onclick="event.stopPropagation();toggleTag('${esc(id)}','${t.id}')">${esc(t.name)}</span>`; }).join('')}
+  <span class="tpick" style="--tc:var(--ink-3)" onclick="event.stopPropagation();newTag('${esc(id)}')">+ new tag</span></div>`;
+const tagManager=()=>DB.tags.length?DB.tags.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+    <span class="tpill" style="--tc:${t.color}">${esc(t.name)}</span>
+    <span class="evtog" style="padding:4px 10px" onclick="renameTag('${t.id}')">rename</span>
+    <span class="cpal" style="gap:6px">${COLORS.slice(1).map(c=>`<span class="cdot ${t.color===c?'onsel':''}" style="background:${c};border-color:${c};width:18px;height:18px" onclick="setTagColor('${t.id}','${c}')"></span>`).join('')}</span>
+    <button class="rm" onclick="deleteTag('${t.id}')">×</button></div>`).join(''):'<div class="legendln">no tags yet</div>';
+const ratingOf=id=>(DB.ratings||{})[id]||0;
+const starsHTML=id=>`<div class="stars">`+[1,2,3,4,5].map(n=>`<span class="star ${n<=ratingOf(id)?'on':''}" onclick="event.stopPropagation();setRating('${esc(id)}',${n})">★</span>`).join('')+`</div>`;
+const byRating=(a,b)=>ratingOf(b.original_name)-ratingOf(a.original_name);
+function freqHTML(p){
+  if(p.freq==='every') return `<span class="freq" onclick="event.stopPropagation();cycleFreq('${esc(p.id)}')"><span class="ev">● EVERY SESSION</span></span>`;
+  const n=countOf(p.id);
+  return `<span class="freq" onclick="event.stopPropagation();cycleFreq('${esc(p.id)}')"><span class="seg">${Array.from({length:p.freq},(_,i)=>`<b class="${i<n?'done':''}"></b>`).join('')}</span>${Math.min(n,p.freq)}/${p.freq}</span>`;
+}
+function serFreqHTML(s){
+  if(s.freq==='every') return `<span class="freq" onclick="event.stopPropagation();cycleSerFreq('${s.id}')"><span class="ev">● EVERY SESSION</span></span>`;
+  const n=DB.serDone[s.id]||0;
+  return `<span class="freq" onclick="event.stopPropagation();cycleSerFreq('${s.id}')"><span class="seg">${Array.from({length:s.freq},(_,i)=>`<b class="${i<n?'done':''}"></b>`).join('')}</span>${Math.min(n,s.freq)}/${s.freq}</span>`;
+}
+
+function renderCatalog(){
+  let list=CAT.exercises.slice();
+  if(UI.goal!=='all') list=list.filter(e=>(e.goals||[]).includes(UI.goal));
+  if(UI.filter!=='all') list=list.filter(e=>UI.filter in exGroups(e));
+  list.sort(byRating);
+  let h=`<div class="hd">
+    <div class="eye"><span>CATALOG</span><span>${DB.program.length} IN PROGRAM</span></div>
+    <div class="trow"><div class="ttl">the<br>catalog</div><div class="cnt"><div class="big">${CAT.exercises.length}</div><div class="lbl">exercises</div></div></div>
+  </div>
+  ${filterBar()}
+  ${UI.showFilters?`<div class="gbar">${goalBtns()}</div>
+  <div class="chips">
+    <div class="chip ${UI.filter==='all'?'sel':''}" onclick="setFilter('all')"><span class="nm">All</span><span class="ct">${CAT.exercises.length}</span></div>
+    ${GROUPS.map(g=>`<div class="chip ${UI.filter===g?'sel':''}" onclick="setFilter('${g}')"><span class="nm">${cap(g)}</span></div>`).join('')}
+  </div>`:''}
+  <div class="list">`;
+  const catRow=e=>{ const id=e.original_name, inn=inProgram(id);
+    return `<div class="row ${inn?'in':''}">${mediaHTML(id)}<div class="rb" onclick="editExercise('${esc(id)}')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span><span class="goal">${(e.goals||[])[0]||''}</span></div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div><div class="add" onclick="toggleProgram('${esc(id)}')">${inn?'✓':'+'}</div></div>`; };
+  if(UI.filter==='all'){
+    // clustered by PRIMARY region, body order
+    let any=false;
+    for(const g of GROUPS){
+      const grp=list.filter(e=>exGroups(e)[g]==='pri');
+      if(!grp.length) continue; any=true;
+      h+=`<div class="ghd"><span class="gn">${cap(g)} region</span><span class="gc">${grp.length}</span></div>`;
+      h+=grp.map(catRow).join('');
+    }
+    if(!any) h+='<div class="empty">no exercises match</div>';
+  } else {
+    h+=list.map(catRow).join('');
+    if(!list.length) h+='<div class="empty">no exercises match</div>';
+  }
+  h+=`</div>${nav()}`;
+  $.innerHTML=h;
+}
+
+function renderProgram(){
+  const cov=coverage(), plan=plannedByRegion();
+  let entries=DB.program.map(p=>({p,e:EXBY[p.id]})).filter(x=>x.e);
+  if(UI.goal!=='all') entries=entries.filter(x=>(x.e.goals||[]).includes(UI.goal));
+  if(UI.filter!=='all') entries=entries.filter(x=>UI.filter in exGroups(x.e));
+  // display sort (view-only; manual drag order is the stored truth)
+  if(UI.sort==='tag'){ const key=x=>{ const ts=(DB.exTags[x.p.id]||[]); return ts.length?Math.min(...ts.map(tid=>DB.tags.findIndex(t=>t.id===tid))):99; };
+    entries.sort((a,b)=>key(a)-key(b)); }
+  else if(UI.sort==='region') entries.sort((a,b)=>GROUPS.indexOf(homeRegion(a.e))-GROUPS.indexOf(homeRegion(b.e)));
+  else if(UI.sort==='az') entries.sort((a,b)=>a.e.suggested_name.localeCompare(b.e.suggested_name));
+  // contract math: numeric-freq slots
+  const numeric=DB.program.filter(p=>p.freq!=='every');
+  const totalSlots=numeric.reduce((s,p)=>s+p.freq,0);
+  const doneSlots=numeric.reduce((s,p)=>s+Math.min(countOf(p.id),p.freq),0);
+  const sessN=sessionLeaves().length;
+  let h=`<div class="hd">
+    <div class="eye"><span>PROGRAM</span></div>
+    <div class="trow"><div class="ttl">the<br>program</div></div>
+    ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>`:''}
+  </div>
+  ${filterBar(true)}
+  ${UI.showFilters?`<div class="gbar">${goalBtns()}</div>
+  <div class="chips">
+    <div class="chip ${UI.filter==='all'?'sel':''}" onclick="setFilter('all')"><span class="nm">All</span><span class="ct">${DB.program.length}</span></div>
+    ${GROUPS.map(g=>`<div class="chip ${UI.filter===g?'sel':''} ${plan[g]>0&&cov[g]<plan[g]?'owed':''}" onclick="setFilter('${g}')"><span class="nm">${cap(g)}</span>${plan[g]>0?`<span class="ct">${Math.min(cov[g],plan[g])}/${plan[g]}</span>`:''}</div>`).join('')}
+  </div>`:''}
+  <div class="list">`;
+  const serRow=(s,inn)=>{ const open=!!UI.openSer[s.id];
+    let r=`<div class="row ser ${inn?'in':''}">
+        <div class="thumb sthumb" style="width:78px;min-height:74px"><span class="ply" style="font-size:17px">≣</span><span class="ct2">${s.exIds.length}</span></div>
+        <div class="rb" onclick="editSeries('${s.id}')"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
+          <div class="smeta"><span>${s.exIds.length} exercise${s.exIds.length===1?'':'s'}</span>${serFreqHTML(s)}</div></div>
+        <button class="mv" style="align-self:center" onclick="toggleSerOpen('${s.id}')">${open?'▾':'▸'}</button>
+        <div class="add" onclick="event.stopPropagation();toggleSeries('${s.id}')">${inn?'✓':'+'}</div>
+        <button class="rm" onclick="event.stopPropagation();deleteSeries('${s.id}')">×</button></div>`;
+    if(open) r+=s.exIds.map((xid,i)=>{ const e=EXBY[xid];
+      return `<div class="ordrow" style="padding-left:44px;background:var(--paper-2)"><span class="num">${i+1}</span><span class="exn" style="font-size:14px;color:var(--ink-2)">${esc(e?e.suggested_name:xid)}</span></div>`; }).join('');
+    return r; };
+  const draggable=UI.filter==='all'&&UI.goal==='all'&&UI.sort==='manual';
+  const progRow=({p,e},picked)=>{ const id=p.id;
+    return `<div class="row ${picked?'in':''}" data-ctx="${esc(id)}" oncontextmenu="openCtxEv(event,'${esc(id)}')" ${picked?'':`data-did="${esc(id)}" data-grp="p"`}>
+        ${mediaHTML(id)}<div class="rb" onclick="showDetail('${esc(id)}','program')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span>${freqHTML(p)}</div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div>
+        <div class="add" onclick="toggleSession('${esc(id)}')">${picked?'✓':'+'}</div>
+        <button class="rm" onclick="removeFromProgram('${esc(id)}')">×</button>${(!picked&&draggable)?'<span class="dh">≡</span>':''}</div>`; };
+  const serOut=DB.series.filter(s=>!seriesInSession(s.id)), serIn=DB.series.filter(s=>seriesInSession(s.id));
+  const entOut=entries.filter(x=>!inSession(x.p.id)), entIn=entries.filter(x=>inSession(x.p.id));
+  // current sprint at the very top — highest priority
+  if(serIn.length||entIn.length){
+    const sn=serIn.length+entIn.length;
+    h+=`<div class="serhd" style="color:var(--red-ink);cursor:pointer;user-select:none" onclick="UI.sprintOpen=!UI.sprintOpen;render()">${UI.sprintOpen?'▾':'▸'} ● in today's session · ${sn}</div>`;
+    if(UI.sprintOpen){
+      h+=serIn.map(s=>serRow(s,true)).join('');
+      h+=entIn.map(x=>progRow(x,true)).join('');
+    }
+    h+=`<div class="serhd" style="border-top:2px solid var(--ink);padding-top:16px">backlog</div>`;
+  }
+  if(serOut.length){
+    h+=`<div class="serhd">series</div>`;
+    h+=serOut.map(s=>serRow(s,false)).join('');
+  }
+  if(DB.program.length){
+    if(serOut.length&&entOut.length) h+=`<div class="serhd">exercises — your order, drag to prioritize</div>`;
+    h+=entOut.map(x=>progRow(x,false)).join('');
+    if(!entries.length) h+='<div class="empty">nothing in your program matches that filter</div>';
+  } else if(!DB.series.length){
+    h+=`<div class="empty">your program is empty.<br>add exercises from the catalog ↓</div>`;
+  }
+  h+=`<div class="addrow" onclick="newSeries()">+ new series</div>
+      <div class="addrow" onclick="go('catalog')">+ add from catalog</div>
+      <div class="addrow" onclick="syncMenu()">⇅ sync ${syncToken()?'· on':'· off — tap to set up'}</div></div>`;
+  if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
+  else h+=`<div class="bar empty"><span class="hint">tap exercises to build today's session</span></div>`;
+  h+=nav();
+  $.innerHTML=h;
+}
+
+function renderSeriesEditor(){
+  const s=serById(UI.sid); if(!s) return go('program');
+  let h=`<div class="backlnk" onclick="go('program')">← program</div>
+  <div class="hd" style="padding-top:10px">
+    <div class="eye"><span>SERIES</span></div>
+    <div class="trow"><div class="ttl" onclick="renameSeries('${s.id}')">${esc(s.name)}</div><div class="cnt"><div class="big">${s.exIds.length}</div><div class="lbl">exercises</div></div></div>
+    <div style="margin-top:14px"><span class="evtog ${s.freq==='every'?'on':''}" onclick="cycleSerFreq('${s.id}')">${s.freq==='every'?'● every session':s.freq+'× per cycle'}</span></div>
+  </div>
+  <div class="list">`;
+  s.exIds.forEach((id,i)=>{ const e=EXBY[id];
+    h+=`<div class="ordrow"><span class="num">${i+1}</span><span class="exn">${esc(e?e.suggested_name:id)}</span>
+      <button class="mv" onclick="moveInSeries('${s.id}',${i},-1)" ${i===0?'disabled':''}>↑</button>
+      <button class="mv" onclick="moveInSeries('${s.id}',${i},1)" ${i===s.exIds.length-1?'disabled':''}>↓</button>
+      <button class="rm" onclick="rmFromSeries('${s.id}',${i})">×</button></div>`;
+  });
+  if(!s.exIds.length) h+=`<div class="empty">no exercises yet — add from below.<br>order is the recommended sequence, top = start.</div>`;
+  h+=`<div class="serhd">add exercises</div>${filterBar()}`;
+  if(UI.showFilters) h+=`<div class="gbar" style="padding-top:4px">${goalBtns()}</div><div class="chips">
+    <div class="chip ${UI.filter==='all'?'sel':''}" onclick="setFilter('all')"><span class="nm">All</span></div>
+    ${GROUPS.map(g=>`<div class="chip ${UI.filter===g?'sel':''}" onclick="setFilter('${g}')"><span class="nm">${cap(g)}</span></div>`).join('')}
+  </div>`;
+  let list=CAT.exercises.slice();
+  if(UI.goal!=='all') list=list.filter(e=>(e.goals||[]).includes(UI.goal));
+  if(UI.filter!=='all') list=list.filter(e=>UI.filter in exGroups(e));
+  list.sort(byRating);
+  for(const e of list){ const id=e.original_name, inn=s.exIds.includes(id);
+    h+=`<div class="row ${inn?'in':''}" onclick="toggleInSeries('${s.id}','${esc(id)}')"><div class="rb"><div class="rtop"><span class="${nameCls(e)}" style="font-size:17px">${esc(e.suggested_name)}</span><span class="goal">${(e.goals||[])[0]||''}</span></div>${starsHTML(id)}</div><div class="add">${inn?'✓':'+'}</div></div>`;
+  }
+  h+=`</div>${nav()}`;
+  $.innerHTML=h;
+}
+
+function renderExEdit(){
+  const e=EXBY[UI.eid]; if(!e) return go('catalog');
+  const id=UI.eid;
+  // muscle state lookup
+  const role=m=>(e.primary||[]).includes(m)?'p':((e.secondary||[]).includes(m)?'s':'');
+  let h=`<div class="backlnk" onclick="go('catalog')">← catalog</div>
+  <div class="hd" style="padding-top:10px">
+    <div class="eye"><span>EXERCISE</span><span>${esc(e.original_name)}</span></div>
+  </div>
+  <div class="list">
+  <div class="efield"><div class="lb">name</div>
+    <input class="txt" value="${esc(e.suggested_name)}" onchange="exSetName('${esc(id)}',this.value)"></div>
+  <div class="efield"><div class="lb">media — photo / gif / short video</div>
+    <div class="row" style="border:none;padding:0;gap:16px">${mediaHTML(id,'ethumb')}
+      <div style="flex:1">
+        <input type="file" accept="image/*,video/mp4,video/webm" onchange="pickMedia(event,'${esc(id)}')" style="font-family:var(--mono);font-size:11px;max-width:100%">
+        ${DB.media[id]?`<div style="margin-top:8px"><span class="evtog" onclick="clearMedia('${esc(id)}')">remove media</span></div>`:''}
+        <div class="legendln">stored on this device. or drop a file named ${esc(slug(id))}.gif into /media via mac-sync.</div>
+      </div></div></div>
+  <div class="efield"><div class="lb">goals</div>
+    <div class="mpills">${['hypertrophy','mobility','therapy'].map(g=>`<span class="mpill ${ (e.goals||[]).includes(g)?'p':''}" onclick="toggleGoalE('${esc(id)}','${g}')">${g}</span>`).join('')}</div></div>
+  <div class="efield"><div class="lb">rating</div>${starsHTML(id)}</div>
+  <div class="efield"><div class="lb">muscles — tap to cycle: none → primary → secondary</div>`;
+  for(const g of GROUPS){
+    const ms=(REGMUS[g]||[]);
+    if(!ms.length) continue;
+    h+=`<div class="mreg">${g}</div><div class="mpills">`+
+      ms.map(m=>`<span class="mpill ${role(m.scientific)}" onclick="cycleMuscle('${esc(id)}','${esc(m.scientific)}')">${esc(m.common||m.scientific)}</span>`).join('')+`</div>`;
+  }
+  h+=`<div class="legendln">solid = primary · shaded = secondary · edits live on this device (like ratings) until there's a backend</div></div>
+  </div>${nav()}`;
+  $.innerHTML=h;
+}
+
+function renderExDetail(){
+  const e=EXBY[UI.did]; if(!e) return go(UI.from||'program');
+  const id=UI.did, p=progEntry(id), inn=inSession(id);
+  let h=`<div class="backlnk" onclick="go('${esc(UI.from||'program')}')">← ${esc(UI.from||'program')}</div>
+  <div class="hd" style="padding-top:10px">
+    <div class="eye"><span>EXERCISE</span><span>${(e.goals||[]).join(' · ')}</span></div>
+    <div class="trow"><div class="ttl" style="font-size:30px">${esc(e.suggested_name)}</div></div>
+  </div>
+  <div class="list">
+  <div class="efield">${mediaHTML(id,'dthumb')}</div>
+  <div class="efield"><div class="lb">muscles</div>
+    <div class="dmeta">${(e.primary||[]).map(m=>`<span class="chip pri">${esc(disp(m))}</span>`).join('')}
+    ${(e.secondary||[]).map(m=>`<span class="chip sec">${esc(disp(m))}</span>`).join('')}</div>
+    <div class="dmeta">${tagsHTML(e)}</div></div>
+  <div class="efield"><div class="lb">rating</div>${starsHTML(id)}</div>`;
+  h+=`<div class="efield"><div class="lb">tags · <span style="cursor:pointer;text-decoration:underline" onclick="UI.manageTags=!UI.manageTags;render()">${UI.manageTags?'done':'manage'}</span></div>${UI.manageTags?tagManager():tagPicker(id)}</div>`;
+  if(p){
+    h+=`<div class="efield"><div class="lb">frequency</div>${freqHTML(p)}</div>`;
+  }
+  h+=`<div class="efield"><span class="evtog" onclick="editExercise('${esc(id)}')">edit exercise →</span></div>
+  </div>
+  <div class="bar"><button class="go" style="width:100%" onclick="toggleSession('${esc(id)}');renderExDetail()">${inn?'✓ IN TODAY\'S SESSION — TAP TO REMOVE':'+ ADD TO TODAY\'S SESSION'}</button></div>${nav()}`;
+  $.innerHTML=h;
+}
+
+function renderFocus(){
+  const id=UI.fid, e=EXBY[id]; if(!e) return go('session');
+  const d=DB.sessDone.includes(id);
+  const src=mediaSrc(id);
+  let media;
+  if(!src) media=`<span class="ply">▶</span>`;
+  else if(/\.(mp4|webm|mov)$/i.test(src)||/^data:video/.test(src)) media=`<video src="${src}" muted loop autoplay playsinline></video>`;
+  else media=`<img src="${src}" alt="">`;
+  $.innerHTML=`<div class="focus">
+    <div class="backlnk" onclick="go('session')">✕ back to session</div>
+    <div class="fmedia">${media}</div>
+    <div class="fname" style="${d?'color:var(--ink-3);text-decoration:line-through':''}">${esc(e.suggested_name)}</div>
+    <div class="fmeta">${tagsHTML(e)}</div>
+    <div class="fdone"><button class="go" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
+  </div>`;
+}
+
+function renderSession(){
+  const leaves=sessionLeaves();
+  if(!leaves.length){ $.innerHTML=`<div class="hd"><div class="eye"><span>TODAY</span></div><div class="trow"><div class="ttl">session</div></div></div><div class="empty">nothing in today's session yet.<br>go to the program and tap exercises in.</div>${nav()}`; return; }
+  const total=leaves.length, done=leaves.filter(id=>DB.sessDone.includes(id)).length;
+  let h=`<div class="hd"><div class="eye"><span>TODAY</span></div>
+    <div class="trow"><div class="ttl">session</div><div class="cnt"><div class="big">${done}/${total}</div><div class="lbl">done</div></div></div></div>
+    <div class="list">`;
+  // series first — item-shaped containers, collapsible, members checkable inside
+  for(const it of DB.session.filter(x=>x.k==='s')){
+    const s=serById(it.sid); if(!s) continue;
+    const sd=s.exIds.filter(id=>DB.sessDone.includes(id)).length;
+    const open=UI.openSesSer[s.id]!==false;
+    h+=`<div class="row ser">
+      <div class="thumb sthumb" style="width:78px;min-height:74px"><span class="ply" style="font-size:17px">≣</span><span class="ct2">${sd}/${s.exIds.length}</span></div>
+      <div class="rb" onclick="toggleSesSer('${s.id}')"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
+        <div class="smeta"><span>${sd}/${s.exIds.length} done</span></div></div>
+      <button class="mv" style="align-self:center" onclick="toggleSesSer('${s.id}')">${open?'▾':'▸'}</button>
+      <button class="rm" onclick="toggleSeries('${s.id}')">×</button></div>`;
+    if(open) s.exIds.forEach((id,i)=>{ const e=EXBY[id], d=DB.sessDone.includes(id);
+      h+=`<div class="srow ${d?'done':''}" style="padding-left:28px;background:var(--paper-2)"><span class="num">${i+1}</span>${mediaHTML(id)}<div style="flex:1;min-width:0" onclick="focusEx('${esc(id)}')">${tagLine(id)}<span class="exn">${esc(e?e.suggested_name:id)}</span></div><div class="done-c" onclick="toggleDone('${esc(id)}')">${d?'✓':''}</div></div>`;
+    });
+  }
+  // loose exercises — your order, freely draggable (the sprint)
+  const loose=DB.session.filter(x=>x.k==='e');
+  h+=loose.map(it=>{ const e=EXBY[it.id], d=DB.sessDone.includes(it.id);
+    return `<div class="srow ${d?'done':''}" data-did="${esc(it.id)}" data-grp="s" data-ctx="${esc(it.id)}" oncontextmenu="openCtxEv(event,'${esc(it.id)}')">${mediaHTML(it.id)}<div style="flex:1;min-width:0" onclick="focusEx('${esc(it.id)}')">${tagLine(it.id)}<span class="exn">${esc(e?e.suggested_name:it.id)}</span></div><span class="dh">≡</span><div class="done-c" onclick="toggleDone('${esc(it.id)}')">${d?'✓':''}</div></div>`;
+  }).join('');
+  h+=`</div><div class="bar"><div class="bi"><div class="bl"><span class="bn">${done}/${total}</span><span class="track"><i style="width:${total?100*done/total:0}%"></i></span></div></div><button class="go" onclick="finish()">FINISH →</button></div>${nav()}`;
+  $.innerHTML=h;
+}
+
+function renderComplete(){
+  const cov=coverage(), prev=window._prevCov||{};
+  const gained=GROUPS.filter(g=>cov[g]>(prev[g]||0));
+  let h=`<div class="complete"><div class="ce">SESSION COMPLETE</div><div class="chk">✓</div><h1>done</h1>
+    <div class="sl">${window._finN||0} exercises · nothing to log. coverage updated automatically.</div>
+    <div class="covlist">`;
+  const plan=plannedByRegion();
+  const show=gained.length?gained:GROUPS.filter(g=>cov[g]>0);
+  for(const g of show){
+    const name=cap(g), t=plan[g];
+    if(t>0){
+      const now=Math.min(cov[g],t), was=Math.min(prev[g]||0,t), met=cov[g]>=t;
+      h+=`<div class="cov"><div class="ct"><span class="cn">${name}</span><span class="cm ${met?'ok':''}">${met?'✓ ':''}${Math.min(cov[g],t)}/${t}</span></div>
+        <div class="cbar"><span class="prev" style="width:${100*was/t}%"></span><span class="gain" style="width:${100*(now-was)/t}%"></span></div></div>`;
+    } else {
+      h+=`<div class="cov"><div class="ct"><span class="cn">${name}</span><span class="cm">+${cov[g]-(prev[g]||0)}</span></div></div>`;
+    }
+  }
+  h+=`</div><div class="bar"><button class="go" style="width:100%" onclick="go('program')">BACK TO THE PROGRAM</button></div></div>${nav()}`;
+  $.innerHTML=h;
+}
+
+// seed an empty session with everything flagged "every session" (series + exercises)
+function seedSession(){
+  if(DB.session.length) return;
+  DB.series.filter(s=>s.freq==='every'&&s.exIds.length).forEach(s=>DB.session.push({k:'s',sid:s.id}));
+  DB.program.filter(p=>p.freq==='every').forEach(p=>{ if(!inSession(p.id)) DB.session.push({k:'e',id:p.id}); });
+}
+
+// actions
+window.go=s=>{UI.screen=s;render();};
+window.setFilter=g=>{UI.filter=g;render();};
+window.setGoal=g=>{UI.goal=g;render();};
+window.toggleFilters=()=>{UI.showFilters=!UI.showFilters;render();};
+window.clearFilters=()=>{UI.filter='all';UI.goal='all';render();};
+window.showDetail=(id,from)=>{UI.did=id;UI.from=from||UI.screen;UI.screen='exdetail';render();};
+window.toggleTag=(id,tid)=>{ DB.exTags[id]=DB.exTags[id]||[];
+  const i=DB.exTags[id].indexOf(tid);
+  if(i>=0){ DB.exTags[id].splice(i,1); }
+  else { if(DB.exTags[id].length>=3){ toast('max 3 tags'); return; } DB.exTags[id].push(tid); }
+  save(); toast('saved'); render(); refreshCtx&&refreshCtx(); };
+window.renameTag=tid=>{ const t=tagById(tid); const n=prompt('tag name',t.name); if(n){t.name=n.trim()||t.name; save(); toast('saved'); render();} };
+window.setTagColor=(tid,c)=>{ const t=tagById(tid); t.color=c; save(); toast('saved'); render(); };
+window.deleteTag=tid=>{ const t=tagById(tid); if(!confirm(`delete tag "${t.name}" everywhere?`))return;
+  DB.tags=DB.tags.filter(x=>x.id!==tid);
+  Object.keys(DB.exTags).forEach(k=>{ DB.exTags[k]=DB.exTags[k].filter(x=>x!==tid); });
+  save(); toast('tag deleted'); render(); };
+window.newTag=id=>{ if((DB.exTags[id]||[]).length>=3){ toast('max 3 tags'); return; }
+  const name=prompt('tag name'); if(!name)return;
+  const t={id:'t'+Math.random().toString(36).slice(2,8),name:name.trim(),color:COLORS[1+(DB.tags.length%(COLORS.length-1))]};
+  DB.tags.push(t); DB.exTags[id]=DB.exTags[id]||[]; DB.exTags[id].push(t.id);
+  save(); toast('tag created'); render(); refreshCtx&&refreshCtx(); };
+window.toggleSerOpen=sid=>{ UI.openSer[sid]=!UI.openSer[sid]; render(); };
+window.focusEx=id=>{ UI.fid=id; UI.screen='focus'; render(); };
+window.focusDone=id=>{ const was=DB.sessDone.includes(id); toggleDone(id);
+  if(!was){ go('session'); } else { render(); } };
+window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; render(); };
+window.cycleSort=()=>{ UI.sort=SORTS[(SORTS.indexOf(UI.sort)+1)%SORTS.length]; render(); };
+window.syncMenu=async()=>{
+  if(syncToken()){
+    const keep=confirm('sync is ON\n\nyour sync code: '+syncToken()+'\n\nuse this code on another device to get your data.\n\nOK = keep syncing · Cancel = disconnect this device');
+    if(!keep){ localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at'); toast('sync off'); render(); }
+    return;
+  }
+  const code=prompt('enter your sync code from another device —\nor leave EMPTY to create a new one');
+  if(code===null) return;
+  if(code.trim()){
+    localStorage.setItem('duro_sync_token',code.trim()); localStorage.removeItem('duro_sync_at');
+    await pullState(); pushState(); toast('sync on'); render();
+  } else {
+    try{
+      const r=await fetch(API+'/signup',{method:'POST'});
+      const d=await r.json();
+      localStorage.setItem('duro_sync_token',d.token);
+      alert('your sync code:\n\n'+d.token+'\n\nWRITE IT DOWN — it is the only key to your data.');
+      pushState(); toast('sync on'); render();
+    }catch(e){ alert('could not reach api.duro.fit — try again'); }
+  }
+};
+window.toggleTheme=()=>{ const t=document.body.dataset.theme==='dark'?'light':'dark';
+  document.body.dataset.theme=t; localStorage.setItem('hard_theme',t); };
+(function(){ const saved=localStorage.getItem('hard_theme');
+  document.body.dataset.theme=saved||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); })();
+window.toggleProgram=id=>{ const i=DB.program.findIndex(p=>p.id===id);
+  if(i>=0){ DB.program.splice(i,1); }
+  else { const s=seriesOf(id); if(s){ toast(`in series "${s.name}" — edit it there`); return; }
+    DB.program.push({id,freq:1}); }
+  save(); render(); };
+window.removeFromProgram=id=>{ DB.program=DB.program.filter(p=>p.id!==id); DB.session=DB.session.filter(it=>!(it.k==='e'&&it.id===id)); save(); render(); };
+window.cycleFreq=id=>{ const p=progEntry(id); if(!p)return; p.freq=FREQS[(FREQS.indexOf(p.freq)+1)%FREQS.length]; save(); render(); };
+window.setRating=(id,n)=>{ DB.ratings=DB.ratings||{}; DB.ratings[id]=(DB.ratings[id]===n?0:n); save(); toast('saved'); render(); };
+window.toggleSession=id=>{
+  const i=DB.session.findIndex(it=>it.k==='e'&&it.id===id);
+  if(i>=0){ DB.session.splice(i,1); }
+  else if(!inSession(id)){ DB.session.push({k:'e',id}); }
+  save(); render();
+};
+window.toggleDone=id=>{ const i=DB.sessDone.indexOf(id); if(i>=0)DB.sessDone.splice(i,1); else DB.sessDone.push(id); save(); render(); };
+// series actions
+window.newSeries=()=>{ const name=prompt('series name','warm-up'); if(!name)return;
+  const s={id:uid(),name,exIds:[],every:false}; DB.series.push(s); save(); UI.sid=s.id; UI.screen='seredit'; render(); };
+window.editSeries=sid=>{ UI.sid=sid; UI.screen='seredit'; render(); };
+window.renameSeries=sid=>{ const s=serById(sid); const n=prompt('series name',s.name); if(n){s.name=n;save();render();} };
+window.deleteSeries=sid=>{ const s=serById(sid); if(!confirm(`delete series "${s.name}"?`))return;
+  DB.series=DB.series.filter(x=>x.id!==sid); DB.session=DB.session.filter(it=>!(it.k==='s'&&it.sid===sid)); save(); render(); };
+window.cycleSerFreq=sid=>{ const s=serById(sid); s.freq=FREQS[(FREQS.indexOf(s.freq)+1)%FREQS.length]; save(); render(); };
+// exercise editor actions — edits persist as overrides on top of the shared catalog
+const persistEdit=id=>{ const e=EXBY[id];
+  DB.edits[id]={suggested_name:e.suggested_name,goals:e.goals,primary:e.primary,secondary:e.secondary}; save(); toast('saved'); };
+window.editExercise=id=>{ UI.eid=id; UI.screen='exedit'; render(); };
+window.exSetName=(id,v)=>{ const e=EXBY[id]; e.suggested_name=v.trim()||e.suggested_name; persistEdit(id); render(); };
+window.toggleGoalE=(id,g)=>{ const e=EXBY[id]; e.goals=e.goals||[];
+  const i=e.goals.indexOf(g); if(i>=0)e.goals.splice(i,1); else e.goals.push(g); persistEdit(id); render(); };
+window.cycleMuscle=(id,m)=>{ const e=EXBY[id]; e.primary=e.primary||[]; e.secondary=e.secondary||[];
+  if(e.primary.includes(m)){ e.primary=e.primary.filter(x=>x!==m); e.secondary.push(m); }
+  else if(e.secondary.includes(m)){ e.secondary=e.secondary.filter(x=>x!==m); }
+  else { e.primary.push(m); }
+  persistEdit(id); render(); };
+window.pickMedia=(ev,id)=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)return;
+  if(f.size>2500000){ alert('keep it under ~2.5MB (it lives in browser storage for now) — use a small gif or short clip'); return; }
+  const r=new FileReader(); r.onload=()=>{ DB.media[id]=r.result;
+    try{ save(); toast('media saved'); }catch(err){ delete DB.media[id]; alert('storage full — remove another media file first'); }
+    render(); }; r.readAsDataURL(f); };
+window.clearMedia=id=>{ delete DB.media[id]; save(); toast('media removed'); render(); };
+window.toggleInSeries=(sid,id)=>{ const s=serById(sid); const i=s.exIds.indexOf(id);
+  if(i>=0)s.exIds.splice(i,1); else s.exIds.push(id); save(); render(); };
+window.rmFromSeries=(sid,i)=>{ const s=serById(sid); s.exIds.splice(i,1); save(); render(); };
+window.moveInSeries=(sid,i,d)=>{ const s=serById(sid); const j=i+d; if(j<0||j>=s.exIds.length)return;
+  [s.exIds[i],s.exIds[j]]=[s.exIds[j],s.exIds[i]]; save(); render(); };
+window.toggleSeries=sid=>{
+  const i=DB.session.findIndex(it=>it.k==='s'&&it.sid===sid);
+  if(i>=0)DB.session.splice(i,1); else DB.session.push({k:'s',sid});
+  save(); render();
+};
+window.finish=()=>{
+  window._prevCov=coverageFrom(DB.doneCount);
+  window._finN=DB.sessDone.length;
+  // a series counts as completed once when every exercise in it was checked this session
+  DB.session.filter(it=>it.k==='s').forEach(it=>{ const s=serById(it.sid);
+    if(s&&s.exIds.length&&s.exIds.every(id=>DB.sessDone.includes(id))) DB.serDone[s.id]=(DB.serDone[s.id]||0)+1; });
+  DB.sessDone.forEach(id=>{DB.doneCount[id]=(DB.doneCount[id]||0)+1;});
+  DB.sessDone=[]; DB.session=[]; seedSession(); save(); UI.screen='complete'; render();
+};
+
+// context menu (right-click / long-press) on program rows
+let CTX=null;
+function buildCtx(id){
+  const p=progEntry(id); if(!p) return '';
+  const e=EXBY[id], inn=inSession(id);
+  return `<div class="lb">tags</div>
+    ${tagPicker(id)}
+    <div class="lb">frequency / cycle</div>
+    <div class="fopts">${FREQS.map(f=>`<button class="fopt ${p.freq===f?'on':''}" onclick="ctxFreq('${esc(id)}','${f}')">${f==='every'?'every session':f+'×'}</button>`).join('')}</div>
+    <div style="height:8px"></div>
+    <button class="act" onclick="closeCtx();toggleSession('${esc(id)}')">${inn?'remove from session':'add to session'}</button>
+    <button class="act" onclick="closeCtx();showDetail('${esc(id)}','program')">details</button>
+    <button class="act" onclick="closeCtx();editExercise('${esc(id)}')">edit exercise</button>
+    <button class="act red" onclick="closeCtx();removeFromProgram('${esc(id)}')">remove from program</button>`;
+}
+window.openCtx=(x,y,id)=>{
+  closeCtx(); if(!progEntry(id)) return;
+  CTX={id};
+  const d=document.createElement('div'); d.id='ctxm'; d.className='ctx'; d.innerHTML=buildCtx(id);
+  document.body.appendChild(d);
+  const r=d.getBoundingClientRect();
+  d.style.left=Math.min(x,innerWidth-r.width-10)+'px';
+  d.style.top=Math.min(y,innerHeight-r.height-10)+'px';
+};
+window.openCtxEv=(ev,id)=>{ ev.preventDefault(); openCtx(ev.clientX,ev.clientY,id); };
+window.closeCtx=()=>{ const d=document.getElementById('ctxm'); if(d)d.remove(); CTX=null; };
+const refreshCtx=()=>{ const d=document.getElementById('ctxm'); if(d&&CTX) d.innerHTML=buildCtx(CTX.id); };
+window.ctxFreq=(id,f)=>{ const p=progEntry(id); if(p){p.freq=(f==='every'?'every':+f); save(); toast('saved');} render(); refreshCtx(); };
+document.addEventListener('pointerdown',ev=>{ if(CTX&&!ev.target.closest('#ctxm')) closeCtx(); },true);
+// long-press = right-click on touch
+let LP={t:null,fired:false,x:0,y:0};
+document.addEventListener('pointerdown',ev=>{
+  const row=ev.target.closest('[data-ctx]'); if(!row) return;
+  if(ev.target.closest('.dh,.add,.rm,.star,.cdot,.freq,button,#ctxm')) return;
+  const id=row.dataset.ctx; LP.x=ev.clientX; LP.y=ev.clientY; LP.fired=false;
+  LP.t=setTimeout(()=>{ LP.fired=true; openCtx(LP.x,LP.y,id); },550);
+});
+document.addEventListener('pointermove',ev=>{ if(LP.t&&(Math.abs(ev.clientX-LP.x)>8||Math.abs(ev.clientY-LP.y)>8)){clearTimeout(LP.t);LP.t=null;} });
+document.addEventListener('pointerup',()=>{ if(LP.t){clearTimeout(LP.t);LP.t=null;} });
+document.addEventListener('click',ev=>{ if(LP.fired){ ev.stopPropagation(); ev.preventDefault(); LP.fired=false; } },true);
+
+// drag-to-reorder (pointer events — works for touch). grp "p" = program backlog, "s" = session sprint.
+let DRAG=null;
+document.addEventListener('pointerdown',ev=>{
+  const hd=ev.target.closest('.dh'); if(!hd) return;
+  const row=hd.closest('[data-did]'); if(!row) return;
+  ev.preventDefault();
+  DRAG={row,grp:row.dataset.grp};
+  row.classList.add('lift');
+},{passive:false});
+document.addEventListener('pointermove',ev=>{
+  if(!DRAG) return; ev.preventDefault();
+  const sibs=[...document.querySelectorAll(`[data-grp="${DRAG.grp}"]`)].filter(r=>r!==DRAG.row);
+  for(const s of sibs){
+    const b=s.getBoundingClientRect();
+    if(ev.clientY>b.top&&ev.clientY<b.bottom){
+      if(ev.clientY<b.top+b.height/2) s.parentNode.insertBefore(DRAG.row,s);
+      else s.parentNode.insertBefore(DRAG.row,s.nextSibling);
+      break;
+    }
+  }
+},{passive:false});
+document.addEventListener('pointerup',()=>{
+  if(!DRAG) return;
+  DRAG.row.classList.remove('lift');
+  const grp=DRAG.grp; DRAG=null;
+  const ids=[...document.querySelectorAll(`[data-grp="${grp}"]`)].map(r=>r.dataset.did);
+  if(grp==='p'){
+    // ids = the visible (unpicked) rows in new order; picked rows keep their backlog slots
+    const set=new Set(ids);
+    const reordered=ids.map(id=>DB.program.find(p=>p.id===id)).filter(Boolean);
+    let k=0;
+    DB.program=DB.program.map(p=>set.has(p.id)?reordered[k++]:p);
+  } else if(grp==='s'){
+    const series=DB.session.filter(it=>it.k==='s');
+    const loose=DB.session.filter(it=>it.k==='e').sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    DB.session=[...series,...loose];
+  }
+  save(); toast('order saved'); render();
+});
+
+let REGMUS={};
+Promise.all([
+  fetch('./docs/exercise-catalog.json').then(r=>r.json()),
+  fetch('./docs/muscle-region-map.json').then(r=>r.json()),
+  fetch('./media/manifest.json').then(r=>r.json()).catch(()=>[])
+]).then(([cat,map,mediaList])=>{
+  CAT=cat; load();
+  cat.exercises.forEach(e=>EXBY[e.original_name]=e);
+  map.muscles.forEach(m=>{ M2R[m.scientific]=m.regions; COMMON[m.scientific]=m.common; m.regions.forEach(r=>{(REGMUS[r]=REGMUS[r]||[]).push(m);}); });
+  (mediaList||[]).forEach(f=>{ MEDIA[f.replace(/\.[^.]+$/,'')]=f; });
+  // apply on-device edits over the shared catalog
+  Object.entries(DB.edits||{}).forEach(([id,ed])=>{ if(EXBY[id]) Object.assign(EXBY[id],ed); });
+  seedSession();
+  if(!DB.program.length&&!DB.series.length) UI.screen='catalog';
+  render();
+  pullState();
+}).catch(e=>{$.innerHTML='<div class="empty">failed to load — '+esc(String(e))+'</div>';});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>
