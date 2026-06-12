@@ -230,7 +230,7 @@ function mediaHTML(id,cls){
   if(/\.(mp4|webm|mov)$/i.test(src)||/^data:video/.test(src)) return `<div class="thumb ${cls||''}"><video src="${src}" muted loop autoplay playsinline></video></div>`;
   return `<div class="thumb ${cls||''}"><img src="${src}" alt="" loading="lazy"></div>`;
 }
-let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},edits:{},media:{},tags:[],exTags:{}};
+let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},edits:{},media:{},tags:[],exTags:{},activeProgram:null};
 let UI={screen:'program',filter:'all',goal:'all',sort:'manual',sid:null,eid:null,did:null,from:'program',showFilters:false,manageTags:false,sprintOpen:true,openSer:{},openSesSer:{},fid:null};
 const SORTS=['manual','tag','region','az'];
 const SORTLBL={manual:'my order',tag:'tag',region:'region',az:'a–z'};
@@ -266,7 +266,8 @@ async function pullState(){
     }
   }catch(e){}
 }
-const save=()=>{ localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
+let EDITP=null; // {pid,name,stash} — editing a program ENTITY: personal state untouched, sync suspended
+const save=()=>{ if(EDITP) return; localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
 let _toastT=null;
 function toast(msg){
   let t=document.getElementById('toast');
@@ -346,7 +347,7 @@ const isTrainer=()=>hasTrainer()&&localStorage.getItem('duro_view_trainee')!=='1
 const deskBuild=()=>isTrainer()&&window.innerWidth>=1000;
 function render(){
   if(!authed()) return renderAuth();
-  if(!isTrainer()&&['catalog','exedit','seredit'].includes(UI.screen)) UI.screen='program';
+  if(!isTrainer()&&['catalog','exedit','seredit','programs'].includes(UI.screen)) UI.screen='program';
   document.body.classList.toggle('deskbuild',deskBuild());
   if(deskBuild()&&(UI.screen==='catalog'||UI.screen==='program')) renderBuilder();
   else if(UI.screen==='catalog') renderCatalog();
@@ -363,8 +364,10 @@ function render(){
 function nav(){
   const n=sessionLeaves().length;
   return `<div class="nav">
-    ${isTrainer()?`<button class="${UI.screen==='catalog'?'on':''}" onclick="go('catalog')">catalog</button>`:''}
-    <button class="${UI.screen==='program'||UI.screen==='seredit'?'on':''}" onclick="go('program')">program ${DB.program.length+DB.series.length?'· '+(DB.program.length+DB.series.length):''}</button>
+    ${isTrainer()?`<button class="${UI.screen==='catalog'?'on':''}" onclick="go('catalog')">catalog</button>
+    <button class="${UI.screen==='programs'?'on':''}" onclick="go('programs')">programs</button>`:''}
+    <button class="${UI.screen==='find'||UI.screen==='progpage'?'on':''}" onclick="go('find')">find</button>
+    <button class="${UI.screen==='program'||UI.screen==='seredit'?'on':''}" onclick="go('program')">${EDITP?'editing…':'program'}</button>
     <button class="${UI.screen==='session'?'on':''}" onclick="go('session')">session ${n?'· '+n:''}</button>
     <button onclick="toggleTheme()" style="flex:none;min-width:46px" title="theme">◐</button>
   </div>`;
@@ -581,8 +584,8 @@ function programHTML(){
   const doneSlots=numeric.reduce((s,p)=>s+Math.min(countOf(p.id),p.freq),0);
   const sessN=sessionLeaves().length;
   let h=`<div class="hd">
-    <div class="eye"><span>PROGRAM</span></div>
-    <div class="trow"><div class="ttl">the<br>program</div></div>
+    <div class="eye"><span>${EDITP?'EDITING PROGRAM':'PROGRAM'}</span>${!EDITP&&DB.activeProgram?`<span>${esc(DB.activeProgram.name)} · ${esc(DB.activeProgram.by)}</span>`:''}</div>
+    <div class="trow"><div class="ttl">${EDITP?esc(EDITP.name):'the<br>program'}</div></div>
     ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>`:''}
   </div>
   ${filterBar(true)}
@@ -598,7 +601,7 @@ function programHTML(){
         <div class="rb" onclick="${isTrainer()?`editSeries('${s.id}')`:`toggleSerOpen('${s.id}')`}"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
           <div class="smeta"><span>${s.exIds.length} exercise${s.exIds.length===1?'':'s'}</span>${serFreqHTML(s)}</div></div>
         <button class="mv" style="align-self:center" onclick="toggleSerOpen('${s.id}')">${open?'▾':'▸'}</button>
-        <div class="add" onclick="event.stopPropagation();toggleSeries('${s.id}')">${inn?'✓':'+'}</div>
+        ${EDITP?'':`<div class="add" onclick="event.stopPropagation();toggleSeries('${s.id}')">${inn?'✓':'+'}</div>`}
         ${isTrainer()?`<button class="rm" onclick="event.stopPropagation();deleteSeries('${s.id}')">×</button>`:''}</div>`;
     if(open) r+=s.exIds.map((xid,i)=>{ const e=EXBY[xid];
       return `<div class="ordrow" style="padding-left:44px;background:var(--paper-2)"><span class="num">${i+1}</span><span class="exn" style="font-size:14px;color:var(--ink-2)">${esc(e?e.suggested_name:xid)}</span></div>`; }).join('');
@@ -607,10 +610,10 @@ function programHTML(){
   const progRow=({p,e},picked)=>{ const id=p.id;
     return `<div class="row ${picked?'in':''}" data-ctx="${esc(id)}" oncontextmenu="openCtxEv(event,'${esc(id)}')" ${picked?'':`data-did="${esc(id)}" data-grp="p"`}>
         ${mediaHTML(id)}<div class="rb" onclick="showDetail('${esc(id)}','program')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span>${freqHTML(p)}</div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div>
-        <div class="add" onclick="toggleSession('${esc(id)}')">${picked?'✓':'+'}</div>
+        ${EDITP?'':`<div class="add" onclick="toggleSession('${esc(id)}')">${picked?'✓':'+'}</div>`}
         ${isTrainer()?`<button class="rm" onclick="removeFromProgram('${esc(id)}')">×</button>`:''}${(!picked&&draggable)?'<span class="dh">≡</span>':''}</div>`; };
-  const serOut=DB.series.filter(s=>!seriesInSession(s.id)), serIn=DB.series.filter(s=>seriesInSession(s.id));
-  const entOut=entries.filter(x=>!inSession(x.p.id)), entIn=entries.filter(x=>inSession(x.p.id));
+  const serOut=EDITP?DB.series:DB.series.filter(s=>!seriesInSession(s.id)), serIn=EDITP?[]:DB.series.filter(s=>seriesInSession(s.id));
+  const entOut=EDITP?entries:entries.filter(x=>!inSession(x.p.id)), entIn=EDITP?[]:entries.filter(x=>inSession(x.p.id));
   // current sprint at the very top — highest priority
   if(serIn.length||entIn.length){
     const sn=serIn.length+entIn.length;
@@ -637,7 +640,8 @@ function programHTML(){
       <div class="addrow" onclick="go('catalog')">+ add from catalog</div>`;
   h+=`
       <div class="addrow" onclick="accountMenu()">⇅ ${localStorage.getItem('duro_email')||''}</div></div>`;
-  if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
+  if(EDITP) h+=`<div class="bar"><div class="bi"><button class="ghost" onclick="discardProgram()">discard changes</button></div><button class="go" onclick="saveProgram()">SAVE PROGRAM</button></div>`;
+  else if(sessN) h+=`<div class="bar"><div class="bi"><div class="be">TODAY · SESSION</div><div class="bl"><span class="bn">${sessN}</span><span class="be">picked</span></div></div><button class="go" onclick="go('session')">START →</button></div>`;
   else h+=`<div class="bar empty"><span class="hint">tap exercises to build today's session</span></div>`;
   return h;
 }
@@ -756,6 +760,122 @@ function renderFocus(){
     <div class="fdone"><button class="go" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
   </div>`;
 }
+
+let PROGLIST=null, PUBLIST=null, PPDATA=null;
+function renderPrograms(){
+  let h=`<div class="hd"><div class="eye"><span>MY PROGRAMS</span></div>
+    <div class="trow"><div class="ttl">programs</div></div></div><div class="list">`;
+  if(PROGLIST===null){ h+='<div class="empty">loading…</div>';
+    fetch(API+'/programs',{headers:{'Authorization':'Bearer '+syncToken()}}).then(r=>r.json()).then(d=>{PROGLIST=d.programs||[];render();}).catch(()=>{PROGLIST=[];render();});
+  } else if(!PROGLIST.length){ h+='<div class="empty">no programs yet — create one and build it</div>'; }
+  else for(const p of PROGLIST){
+    h+=`<div class="row"><div class="rb" onclick="editProgram('${p.public_id}')">
+      <div class="rtop"><span class="exn" style="font-size:18px">${esc(p.name)}</span>
+      <span class="goal" style="${p.published?'color:var(--red-ink)':''}">${p.published?(p.price_cents?'$'+(p.price_cents/100).toFixed(2):'published · free'):'draft'}</span></div>
+      <div class="tags"><span class="tag sc">${p.exercises} exercises · ${p.series} series</span></div></div>
+      ${p.published?`<button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="shareProgram('${p.public_id}')">link</button>`:''}
+      <button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="togglePublish('${p.public_id}')">${p.published?'unpub':'publish'}</button>
+      <button class="mv" style="align-self:center;width:auto;padding:0 9px" onclick="setPrice('${p.public_id}')">$</button>
+      <button class="rm" onclick="archiveProgram('${p.public_id}')">×</button></div>`;
+  }
+  h+=`<div class="addrow" onclick="newProgram()">+ new program</div></div>${nav()}`;
+  $.innerHTML=h;
+}
+function renderFind(){
+  let h=`<div class="hd"><div class="eye"><span>FIND A PROGRAM</span></div>
+    <div class="trow"><div class="ttl">find</div></div></div><div class="list">`;
+  if(PUBLIST===null){ h+='<div class="empty">loading…</div>';
+    fetch(API+'/programs/published',{headers:{'Authorization':'Bearer '+syncToken()}}).then(r=>r.json()).then(d=>{PUBLIST=d.programs||[];render();}).catch(()=>{PUBLIST=[];render();});
+  } else if(!PUBLIST.length){ h+='<div class="empty">no published programs yet</div>'; }
+  else for(const p of PUBLIST){
+    h+=`<div class="row" onclick="showProgPage('${p.public_id}')"><div class="rb">
+      <div class="rtop"><span class="exn" style="font-size:18px">${esc(p.name)}</span>
+      <span class="goal">${p.price_cents?'$'+(p.price_cents/100).toFixed(2):'free'}</span></div>
+      <div class="tags"><span class="tag sc">by ${esc(p.by)} · ${p.exercises} exercises · ${p.series} series</span></div></div></div>`;
+  }
+  h+=`</div>${nav()}`;
+  $.innerHTML=h;
+}
+function renderProgPage(){
+  const d=PPDATA;
+  if(!d||d.public_id!==UI.ppid){
+    $.innerHTML=`<div class="backlnk" onclick="go('find')">← find</div><div class="empty">loading…</div>${nav()}`;
+    fetch(API+'/programs/'+UI.ppid,{headers:{'Authorization':'Bearer '+syncToken()}}).then(r=>r.ok?r.json():null).then(x=>{PPDATA=x;if(!x){toast('program not found');go('find');}else render();}).catch(()=>{toast('offline');go('find');});
+    return;
+  }
+  const c=d.content||{}, free=!d.price_cents;
+  let h=`<div class="backlnk" onclick="go('find')">← find</div>
+  <div class="hd" style="padding-top:8px">
+    <div class="eye"><span>PROGRAM</span><span>${free?'FREE':'$'+(d.price_cents/100).toFixed(2)}</span></div>
+    <div class="trow"><div class="ttl" style="font-size:32px">${esc(d.name)}</div></div>
+    <div class="sl" style="font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:6px">by ${esc(d.by)}${d.description?' — '+esc(d.description):''}</div>
+  </div><div class="list">`;
+  for(const s of (c.series||[])){
+    h+=`<div class="shd"><span class="t">${esc(s.name)}</span><span class="c">${s.exIds.length}</span></div>`;
+    s.exIds.forEach((id,i)=>{ const e=EXBY[id];
+      h+=`<div class="srow"><span class="num">${i+1}</span>${mediaHTML(id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:id)}</span></div>`; });
+  }
+  for(const en of (c.entries||[])){ const e=EXBY[en.id];
+    h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
+  h+=`</div><div class="bar">${d.mine?`<button class="ghost" onclick="editProgram('${d.public_id}')">edit</button>`:''}
+    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'START THIS PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
+  $.innerHTML=h;
+}
+window.showProgPage=pid=>{ UI.ppid=pid; PPDATA=null; UI.screen='progpage'; render(); };
+window.newProgram=async()=>{
+  const name=prompt('program name'); if(!name||!name.trim())return;
+  const r=await fetch(API+'/programs',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({name:name.trim()})});
+  if(!r.ok){toast('failed');return;}
+  PROGLIST=null; const p=await r.json(); toast('created'); editProgram(p.public_id);
+};
+window.editProgram=async pid=>{
+  const r=await fetch(API+'/programs/'+pid,{headers:{'Authorization':'Bearer '+syncToken()}});
+  if(!r.ok){toast('failed');return;}
+  const d=await r.json();
+  EDITP={pid, name:d.name, stash:{program:DB.program, series:DB.series}};
+  DB.program=(d.content&&d.content.entries)||[]; DB.series=(d.content&&d.content.series)||[];
+  UI.screen='program'; render();
+};
+window.saveProgram=async()=>{
+  const content={entries:DB.program, series:DB.series};
+  const r=await fetch(API+'/programs/'+EDITP.pid,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({content})});
+  if(!r.ok){toast('save failed');return;}
+  DB.program=EDITP.stash.program; DB.series=EDITP.stash.series; EDITP=null;
+  PROGLIST=null; toast('program saved'); go('programs');
+};
+window.discardProgram=()=>{
+  DB.program=EDITP.stash.program; DB.series=EDITP.stash.series; EDITP=null;
+  toast('discarded'); go('programs');
+};
+window.togglePublish=async pid=>{
+  const p=PROGLIST.find(x=>x.public_id===pid);
+  const r=await fetch(API+'/programs/'+pid,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({published:!p.published})});
+  if(r.ok){ PROGLIST=null; PUBLIST=null; toast(p.published?'unpublished':'published'); render(); }
+};
+window.setPrice=async pid=>{
+  const v=prompt('price in USD (0 = free)','0'); if(v===null)return;
+  const cents=Math.round(parseFloat(v||'0')*100)||0;
+  const r=await fetch(API+'/programs/'+pid,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({price_cents:cents})});
+  if(r.ok){ PROGLIST=null; PUBLIST=null; toast(cents?('$'+(cents/100).toFixed(2)):'free'); render(); }
+};
+window.shareProgram=pid=>{
+  const url='https://duro.fit/#p/'+pid;
+  (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('link copied')).catch(()=>prompt('share this link:',url));
+};
+window.archiveProgram=async pid=>{
+  if(!confirm('archive this program?'))return;
+  const r=await fetch(API+'/programs/'+pid,{method:'DELETE',headers:{'Authorization':'Bearer '+syncToken()}});
+  if(r.ok){ PROGLIST=null; toast('archived'); render(); }
+};
+window.enrollProgram=async pid=>{
+  if(!confirm('start this program? it replaces your current program (your ratings and tags survive)'))return;
+  const r=await fetch(API+'/programs/'+pid+'/enroll',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
+  if(r.status===402){ toast('paid program — payments coming soon'); return; }
+  if(!r.ok){ toast('could not enroll'); return; }
+  localStorage.removeItem('duro_sync_at');
+  await pullState(); toast('enrolled'); go('program');
+};
+addEventListener('hashchange',()=>{ if(authed()&&location.hash.startsWith('#p/')) showProgPage(location.hash.slice(3)); });
 
 function renderSession(){
   const leaves=sessionLeaves();
