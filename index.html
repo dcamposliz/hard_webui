@@ -399,7 +399,8 @@ function renderAuth(){
     <button class="go" style="max-width:340px;width:100%" onclick="authSend()">SEND LOGIN CODE →</button>
     <div class="legendln" style="max-width:340px">alpha is invite-only. returning users can leave the invite blank.</div>`;
   } else if(stage==='profile'){
-    h+=`<div class="sl" style="margin-bottom:6px">one more step — tell us who's training</div>
+    h+=`<div class="sl" style="margin-bottom:2px">signed in as <b>${esc(localStorage.getItem('duro_email')||UI.authEmail||'')}</b></div>
+    <div class="sl" style="margin-bottom:6px">one more step — tell us who's training</div>
     <input class="txt" id="pFirst" placeholder="first name / nombre" autocomplete="given-name" style="max-width:340px;margin-bottom:10px">
     <input class="txt" id="pLast" placeholder="last name / apellido" autocomplete="family-name" style="max-width:340px;margin-bottom:10px">
     <div style="display:flex;gap:8px;max-width:340px;width:100%;margin-bottom:10px">
