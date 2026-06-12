@@ -527,8 +527,8 @@ window.authProfile=async()=>{
     if(!r.ok){ const e=await r.json().catch(()=>({})); toast(e.error||'check the fields'); return; }
     localStorage.setItem('duro_profile','1');
     UI.authStage=null;
-    await pullState(); pushState(); toast('welcome');
-    UI.screen=(DB.program.length||DB.series.length)?'program':'catalog';
+    await loadExercises(); await pullState(); pushState(); toast('welcome');
+    if(PENDH.startsWith('#p/')) applyPath('/p/'+PENDH.slice(3)); else applyPath(PENDPATH);
     render();
   }catch(e){ toast('cannot reach api.duro.fit'); }
 };
@@ -824,7 +824,7 @@ function renderProgPage(){
     <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'START THIS PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
   $.innerHTML=h;
 }
-window.showProgPage=pid=>{ UI.ppid=pid; PPDATA=null; UI.screen='progpage'; render(); };
+window.showProgPage=pid=>{ UI.ppid=pid; PPDATA=null; UI.screen='progpage'; history.pushState(null,'','/p/'+pid); render(); };
 window.newProgram=async()=>{
   const name=prompt('program name'); if(!name||!name.trim())return;
   const r=await fetch(API+'/programs',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({name:name.trim()})});
@@ -862,7 +862,7 @@ window.setPrice=async pid=>{
   if(r.ok){ PROGLIST=null; PUBLIST=null; toast(cents?('$'+(cents/100).toFixed(2)):'free'); render(); }
 };
 window.shareProgram=pid=>{
-  const url='https://duro.fit/#p/'+pid;
+  const url='https://duro.fit/p/'+pid;
   (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('link copied')).catch(()=>prompt('share this link:',url));
 };
 window.archiveProgram=async pid=>{
@@ -941,7 +941,15 @@ function seedSession(){
 }
 
 // actions
-window.go=s=>{UI.screen=s;render();};
+const ROUTEPATHS={find:'/find',program:'/program',session:'/session'};
+function applyPath(p){
+  if(p.startsWith('/p/')){ UI.ppid=p.slice(3); PPDATA=null; UI.screen='progpage'; }
+  else UI.screen={'/find':'find','/session':'session','/program':'program','/':'program'}[p]||'program';
+}
+window.go=s=>{ UI.screen=s;
+  if(ROUTEPATHS[s]) history.pushState(null,'',ROUTEPATHS[s]);
+  render(); };
+addEventListener('popstate',()=>{ if(authed()){ applyPath(location.pathname); render(); } });
 window.setFilter=g=>{UI.filter=g;render();};
 window.setGoal=g=>{UI.goal=g;render();};
 window.toggleFilters=()=>{UI.showFilters=!UI.showFilters;render();};
