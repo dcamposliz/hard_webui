@@ -342,8 +342,11 @@ function plannedByRegion(){
 }
 
 const authed=()=>!!(syncToken()&&localStorage.getItem('duro_email')&&localStorage.getItem('duro_profile')==='1');
-const hasTrainer=()=>localStorage.getItem('duro_trainer')==='1';
-const isTrainer=()=>hasTrainer()&&localStorage.getItem('duro_view_trainee')!=='1';
+// trainer UI deleted 2026-06-12 (David: redesign from scratch around the five
+// authoring functions). Capability still exists server-side; this app is the
+// trainee product only.
+const hasTrainer=()=>false;
+const isTrainer=()=>false;
 const deskBuild=()=>isTrainer()&&window.innerWidth>=1000;
 function render(){
   if(!authed()) return renderAuth();
@@ -817,7 +820,7 @@ function renderProgPage(){
   }
   for(const en of (c.entries||[])){ const e=EXBY[en.id];
     h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
-  h+=`</div><div class="bar">${d.mine?`<button class="ghost" onclick="editProgram('${d.public_id}')">edit</button>`:''}
+  h+=`</div><div class="bar">
     <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'START THIS PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
   $.innerHTML=h;
 }
