@@ -413,7 +413,9 @@ function renderAuth(){
       <span class="evtog ${(UI.pLang||'en')==='en'?'on':''}" style="flex:1;justify-content:center" onclick="UI.pLang='en';render()">english</span>
       <span class="evtog ${UI.pLang==='es'?'on':''}" style="flex:1;justify-content:center" onclick="UI.pLang='es';render()">español</span>
     </div>
-    <button class="go" style="max-width:340px;width:100%" onclick="authProfile()">START TRAINING →</button>`;
+    <button class="go" style="max-width:340px;width:100%" onclick="authProfile()">START TRAINING →</button>
+    <div style="height:12px"></div>
+    <span class="evtog" onclick="authAbort()">not you? sign out — use another email</span>`;
   } else {
     h+=`<div class="sl">6-digit code sent to <b>${esc(UI.authEmail)}</b></div>
     <input class="txt" id="authCode" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6" style="max-width:340px;font-size:24px;letter-spacing:.3em;text-align:center">
@@ -456,6 +458,11 @@ window.authVerify=async()=>{
     UI.screen=(DB.program.length||DB.series.length)?'program':'catalog';
     render();
   }catch(e){ toast('cannot reach api.duro.fit'); }
+};
+window.authAbort=()=>{
+  localStorage.removeItem('duro_sync_token'); localStorage.removeItem('duro_sync_at');
+  localStorage.removeItem('duro_email'); localStorage.removeItem('duro_profile');
+  UI.authStage='email'; UI.authEmail=''; toast('signed out'); render();
 };
 window.authProfile=async()=>{
   const f=(document.getElementById('pFirst').value||'').trim();
