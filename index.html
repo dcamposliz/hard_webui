@@ -306,15 +306,35 @@ async function pullState(){
     if(d.profile_complete===false){ localStorage.removeItem('duro_profile'); UI.authStage='profile'; render(); return; }
     if(d.profile_complete===true) localStorage.setItem('duro_profile','1');
     const known=localStorage.getItem('duro_sync_at')||'';
+    let dirty=false;
     if(d.state&&Object.keys(d.state).length&&d.updated_at!==known){
       DB=Object.assign(DB,d.state);
       localStorage.setItem('hard_mvp',JSON.stringify(DB));
       localStorage.setItem('duro_sync_at',d.updated_at);
-      render(); toast('synced');
+      dirty=true; toast('synced');
     }
+    // refresh the subscribed program's live content regardless — the trainer's
+    // edits don't touch the trainee's own state, so this can't ride on the diff above
+    if(await loadActiveProgram()) dirty=true;
+    if(dirty) render();
   }catch(_){/* offline */}
 }
 const save=()=>{ localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
+/* subscribed program: read the trainer's content LIVE so their edits propagate.
+   progress (doneCount/serDone/session/sessDone) is the trainee's and is left untouched. */
+async function loadActiveProgram(){
+  const ap=DB.activeProgram; if(!ap||!ap.public_id) return false;
+  try{
+    const r=await fetch(API+'/programs/'+ap.public_id,{headers:{'Authorization':'Bearer '+syncToken()}});
+    if(!r.ok) return false; // unpublished / offline → keep the cached copy
+    const d=await r.json(); const c=d.content||{};
+    DB.program=(c.entries||[]).map(p=>typeof p==='string'?{id:p,freq:1}:p);
+    DB.series=c.series||[];
+    DB.activeProgram={public_id:d.public_id,name:d.name,by:d.by};
+    localStorage.setItem('hard_mvp',JSON.stringify(DB));
+    return true;
+  }catch(_){ return false; } // offline: keep snapshot
+}
 function loadLocal(){
   try{
     const raw=JSON.parse(localStorage.getItem('hard_mvp')||'{}');
@@ -825,7 +845,8 @@ function renderProgram(){
     ${GROUPS.map(g=>`<div class="chip ${UI.filter===g?'sel':''} ${plan[g]>0&&cov[g]<plan[g]?'owed':''}" onclick="setFilter('${g}')"><span class="nm">${cap(g)}</span>${plan[g]>0?`<span class="ct">${Math.min(cov[g],plan[g])}/${plan[g]}</span>`:''}</div>`).join('')}
   </div>`:''}
   <div class="list">`;
-  const draggable=UI.filter==='all'&&UI.goal==='all'&&UI.sort==='manual';
+  // a subscribed program is the trainer's live structure — not the trainee's to reorder (fork to customize)
+  const draggable=!DB.activeProgram&&UI.filter==='all'&&UI.goal==='all'&&UI.sort==='manual';
   const serRow=(s,inn)=>{ const open=!!UI.openSer[s.id];
     let r=`<div class="row ser ${inn?'in':''}">
         <div class="thumb sthumb" style="width:78px;min-height:74px"><span class="ply" style="font-size:17px">≣</span><span class="ct2">${s.exIds.length}</span></div>
@@ -1012,17 +1033,17 @@ function renderProgPage(){
   for(const en of (c.entries||[])){ const e=EXBY[en.id];
     h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
   h+=`</div><div class="bar">
-    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'SIGN UP FOR PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
+    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'SUBSCRIBE':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
   $.innerHTML=h;
 }
 window.enrollProgram=async pid=>{
-  if(!confirm('sign up for this program? it replaces your current program (your ratings survive)'))return;
+  if(!confirm("subscribe to this program? you'll get the trainer's updates live. (replaces your current program; your ratings survive)"))return;
   try{
     const r=await fetch(API+'/programs/'+pid+'/enroll',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
     if(r.status===402){ toast('paid program — payments coming soon'); return; }
-    if(!r.ok){ toast('could not enroll'); return; }
+    if(!r.ok){ toast('could not subscribe'); return; }
     localStorage.removeItem('duro_sync_at');
-    await pullState(); toast('enrolled'); go('program');
+    await pullState(); await loadActiveProgram(); seedSession(); toast('subscribed'); go('program');
   }catch(_){ toast('offline'); }
 };
 
@@ -1315,6 +1336,7 @@ Promise.all([
   (mediaList||[]).forEach(f=>{ MEDIA[f.replace(/\.[^.]+$/,'')]=f; });
   if(authed()){
     await loadExercises();
+    await loadActiveProgram();   // pull the trainer's latest on every open
     seedSession();
     if(PENDH.startsWith('#p/')) applyPath('/p/'+PENDH.slice(3));
     else applyPath(PENDPATH);
