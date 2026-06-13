@@ -1055,7 +1055,7 @@ window.focusSkip=id=>{ const leaves=sessionLeaves(), ci=leaves.indexOf(id); // a
 function renderFocus(){
   const id=UI.fid, e=EXBY[id]; if(!e) return go('session');
   const d=DB.sessDone.includes(id);
-  const src=mediaSrc(id,'detail');
+  const src=mediaSrc(id);   // light 200w.webp — speed matters mid-session
   let media;
   if(!src) media=`<span class="ply">▶</span>`;
   else if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) media=`<video src="${src}" muted loop autoplay playsinline></video>`;
@@ -1073,6 +1073,9 @@ function renderFocus(){
       ${remaining>1?`<button class="go ghost" style="flex:none;width:auto;padding:20px 18px" onclick="focusSkip('${esc(id)}')">SKIP →</button>`:''}
       <button class="go" style="flex:1" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
   </div>`;
+  // preload the next couple of exercises' media so advancing is instant
+  const up=leaves.filter((x,i)=>i>pos&&!DB.sessDone.includes(x)).slice(0,2);
+  up.forEach(x=>{ const u=mediaSrc(x); if(u&&!/\.(mp4|webm|mov)(\?|$)/i.test(u)){ const im=new Image(); im.src=u; } });
 }
 window.showDetail=(id,from)=>{ UI.did=id; UI.from=from||UI.screen; UI.screen='exdetail'; render(); };
 function renderExDetail(){
