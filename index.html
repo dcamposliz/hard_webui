@@ -33,7 +33,7 @@
   body{font-family:var(--grot);background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;}
   #app{max-width:520px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;overflow-x:clip;}
   /* header */
-  .hd{flex:none;padding:54px 20px 12px;}
+  .hd{flex:none;padding:calc(54px + env(safe-area-inset-top)) 20px 12px;}
   .eye{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;align-items:baseline;}
   .eye .dot{color:var(--red-ink);font-weight:700;}
   .trow{display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;}
@@ -141,7 +141,7 @@
   .nav button{flex:1;background:none;border:none;padding:12px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;}
   .nav button.on{color:var(--ink);font-weight:700;}
   .empty{color:var(--ink-3);font-family:var(--mono);font-size:13px;padding:40px 20px;text-align:center;}
-  .backlnk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;padding:18px 20px 12px;min-height:48px;}
+  .backlnk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;padding:calc(18px + env(safe-area-inset-top)) 20px 12px;min-height:48px;}
   /* exercise editor */
   .txt{background:var(--card);border:1px solid var(--line-2);color:var(--ink);padding:10px 12px;border-radius:9px;font-size:16px;font-family:var(--grot);font-weight:700;width:100%;outline:none;}
   .efield{padding:14px 20px;border-bottom:1px solid var(--line);}
@@ -199,11 +199,26 @@
   .builder .pane:first-child{border-right:2px solid var(--ink);}
   .builder .pane .hd{padding-top:24px;}
   /* account avatar */
-  .avatar{position:fixed;top:14px;right:14px;z-index:30;width:38px;height:38px;border-radius:50%;
+  .avatar{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:30;width:38px;height:38px;border-radius:50%;
     background:var(--ink);color:var(--paper);font-family:var(--mono);font-weight:700;font-size:14px;
     display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid var(--line-2);
     box-shadow:0 2px 10px rgba(0,0,0,.15);}
   .eye{padding-right:46px;}
+  /* right-thumb floating primary action */
+  .fab{position:fixed;right:18px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:28;background:var(--red);color:#fff;border:none;
+    border-radius:50%;width:78px;height:78px;font-family:var(--grot);font-weight:800;font-size:13px;text-transform:uppercase;
+    letter-spacing:.02em;line-height:1.05;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.3);display:flex;align-items:center;
+    justify-content:center;text-align:center;padding:6px;}
+  .fab.wide{border-radius:40px;width:auto;min-width:128px;height:60px;padding:0 24px;font-size:14px;}
+  .fab:disabled{opacity:.5;}
+  .ribbon{display:inline-block;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;
+    letter-spacing:.12em;text-transform:uppercase;padding:4px 11px;border-radius:999px;margin-top:8px;}
+  .gear{flex:none;background:none;border:1px solid var(--line-2);border-radius:9px;color:var(--ink-2);width:36px;height:36px;font-size:17px;cursor:pointer;}
+  /* tinder-style session progress dots */
+  .pdots{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:24;display:flex;justify-content:center;gap:6px;pointer-events:none;}
+  .pdots i{width:7px;height:7px;border-radius:50%;background:var(--line-2);}
+  .pdots i.on{background:var(--red);}
+  .pdots i.cur{transform:scale(1.5);background:var(--ink);}
   /* ===== TRAINER STUDIO — separate application shell ===== */
   body.studio #app{max-width:none;}
   .st-top{flex:none;display:flex;align-items:center;gap:4px;padding:0 22px;background:var(--bar-bg);color:var(--bar-fg);}
@@ -526,7 +541,9 @@ window.toggleSeries=sid=>{
   if(i>=0) DB.session.splice(i,1); else DB.session.push({k:'s',sid});
   save(); render();
 };
-window.toggleDone=id=>{ const i=DB.sessDone.indexOf(id); if(i>=0)DB.sessDone.splice(i,1); else DB.sessDone.push(id); save(); render(); };
+// re-render while preserving the scroll position of the list (no more jump-to-top)
+function rr(){ const l=document.querySelector('.list'); const t=l?l.scrollTop:0; render(); const n=document.querySelector('.list'); if(n)n.scrollTop=t; }
+window.toggleDone=id=>{ const i=DB.sessDone.indexOf(id); if(i>=0)DB.sessDone.splice(i,1); else DB.sessDone.push(id); save(); rr(); };
 window.finish=()=>{
   window._prevCov=coverageFrom(DB.doneCount);
   window._finN=DB.sessDone.length;
@@ -536,7 +553,7 @@ window.finish=()=>{
   DB.sessDone=[]; DB.session=[]; seedSession(); save(); UI.screen='complete'; render();
 };
 window.toggleSerOpen=sid=>{ UI.openSer[sid]=!UI.openSer[sid]; render(); };
-window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; render(); };
+window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; rr(); };
 
 /* ---------- shared UI bits ---------- */
 function nav(){
@@ -989,8 +1006,17 @@ function renderComplete(){
   $.innerHTML=h;
 }
 window.focusEx=id=>{ UI.fid=id; UI.screen='focus'; render(); };
-window.focusDone=id=>{ const was=DB.sessDone.includes(id); toggleDone(id);
-  if(!was){ go('session'); } else { render(); } };
+window.focusDone=id=>{ const was=DB.sessDone.includes(id);
+  const i=DB.sessDone.indexOf(id); if(i>=0)DB.sessDone.splice(i,1); else DB.sessDone.push(id); save();
+  if(was){ render(); return; }                       // undo → stay on this exercise
+  const leaves=sessionLeaves(), ci=leaves.indexOf(id);  // just done → jump to the next undone, wrapping
+  let next=null;
+  for(let k=1;k<=leaves.length;k++){ const cand=leaves[(ci+k)%leaves.length]; if(!DB.sessDone.includes(cand)){ next=cand; break; } }
+  if(next) focusEx(next); else go('session');          // all done → back to session
+};
+window.focusSkip=id=>{ const leaves=sessionLeaves(), ci=leaves.indexOf(id); // advance without marking done
+  for(let k=1;k<=leaves.length;k++){ const cand=leaves[(ci+k)%leaves.length]; if(cand!==id&&!DB.sessDone.includes(cand)){ focusEx(cand); return; } }
+  go('session'); };
 function renderFocus(){
   const id=UI.fid, e=EXBY[id]; if(!e) return go('session');
   const d=DB.sessDone.includes(id);
@@ -999,12 +1025,18 @@ function renderFocus(){
   if(!src) media=`<span class="ply">▶</span>`;
   else if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) media=`<video src="${src}" muted loop autoplay playsinline></video>`;
   else media=`<img src="${src}" alt="">`;
+  const leaves=sessionLeaves(), pos=leaves.indexOf(id);
+  const dots=leaves.length>1?`<div class="pdots" style="position:static;bottom:auto;padding:10px 0 2px">${leaves.map((x,i)=>`<i class="${DB.sessDone.includes(x)?'on':''} ${i===pos?'cur':''}"></i>`).join('')}</div>`:'';
+  const remaining=leaves.filter(x=>!DB.sessDone.includes(x)).length;
   $.innerHTML=`<div class="focus">
-    <div class="backlnk" onclick="go('session')">✕ back to session</div>
+    <div class="backlnk" onclick="go('session')">✕ back to session<span style="margin-left:auto;color:var(--ink-3)">${pos+1}/${leaves.length}</span></div>
     <div class="fmedia">${media}</div>
+    ${dots}
     <div class="fname" style="${d?'color:var(--ink-3);text-decoration:line-through':''}">${esc(e.suggested_name)}</div>
     <div class="fmeta">${tagsHTML(e)}</div>
-    <div class="fdone"><button class="go" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
+    <div class="fdone" style="display:flex;gap:10px">
+      ${remaining>1?`<button class="go ghost" style="flex:none;width:auto;padding:20px 18px" onclick="focusSkip('${esc(id)}')">SKIP →</button>`:''}
+      <button class="go" style="flex:1" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
   </div>`;
 }
 window.showDetail=(id,from)=>{ UI.did=id; UI.from=from||UI.screen; UI.screen='exdetail'; render(); };
@@ -1036,15 +1068,14 @@ function renderPrograms(){
   const subs=DB.subscriptions||[];
   let h=`<div class="hd"><div class="eye"><span>YOUR LIBRARY</span></div>
     <div class="trow"><div class="ttl">programs</div></div></div><div class="list">`;
-  if(!subs.length) h+='<div class="empty">no programs yet.</div>';
+  if(!subs.length) h+='<div class="empty">no programs yet.<br>tap shop to find one →</div>';
   else for(const s of subs){ const act=s.public_id===DB.active_id;
     h+=`<div class="row" onclick="showProgPage('${esc(s.public_id)}')"><div class="rb">
       <div class="rtop"><span class="exn" style="font-size:18px">${esc(s.name||'program')}</span>
       ${act?'<span class="goal" style="color:var(--red-ink)">active</span>':''}</div>
       <div class="tags"><span class="tag sc">by ${esc(s.by||'')}</span></div></div></div>`;
   }
-  h+=`<div class="row" onclick="go('find')" style="justify-content:center"><span class="exn" style="color:var(--red-ink);font-size:16px">+ shop for programs →</span></div>`;
-  h+=`</div>${nav()}`;
+  h+=`</div><button class="fab" onclick="go('find')">SHOP</button>${nav()}`;
   $.innerHTML=h;
 }
 function renderFind(){
@@ -1077,27 +1108,36 @@ function renderProgPage(){
   const isActive=DB.active_id===d.public_id;
   let h=`<div class="backlnk" onclick="go('${sub?'programs':'find'}')">← ${sub?'programs':'find'}</div>
   <div class="hd" style="padding-top:8px">
-    <div class="eye"><span>${isActive?'ACTIVE PROGRAM':'PROGRAM'}</span><span>${free?'FREE':'$'+(d.price_cents/100).toFixed(2)}</span></div>
-    <div class="trow"><div class="ttl" style="font-size:32px">${esc(d.name)}</div></div>
+    <div class="eye"><span>PROGRAM</span><span>${free?'FREE':'$'+(d.price_cents/100).toFixed(2)}</span></div>
+    <div class="trow"><div class="ttl" style="font-size:32px">${esc(d.name)}</div>${sub?`<button class="gear" style="margin-left:auto;align-self:flex-start" onclick="progMenu(event,'${esc(d.public_id)}')" title="program options">⚙</button>`:''}</div>
     <div class="sl" style="font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:6px">by ${esc(d.by)}${d.description?' — '+esc(d.description):''}</div>
+    ${sub?`<div><span class="ribbon">${isActive?'★ active program':'✓ subscribed'}</span></div>`:''}
   </div><div class="list">`;
   for(const s of (c.series||[])){
     h+=`<div class="shd"><span class="t">${esc(s.name)}</span><span class="c">${s.exIds.length}</span></div>`;
     s.exIds.forEach((id,i)=>{ const e=EXBY[id];
-      h+=`<div class="srow"><span class="num">${i+1}</span>${mediaHTML(id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:id)}</span></div>`; });
+      h+=`<div class="srow" onclick="showDetail('${esc(id)}','progpage')"><span class="num">${i+1}</span>${mediaHTML(id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:id)}</span></div>`; });
   }
   for(const en of (c.entries||[])){ const e=EXBY[en.id];
-    h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
-  let cta;
-  if(!sub){ cta = free
-      ? `<button class="go" style="flex:1" onclick="enrollProgram('${d.public_id}')">SUBSCRIBE</button>`
-      : `<button class="go" style="flex:1;opacity:.55" disabled>$${(d.price_cents/100).toFixed(2)} — PAYMENTS COMING SOON</button>`; }
-  else if(isActive){ cta = `<button class="go" style="flex:1" onclick="go('program')">START A SESSION →</button>`; }
-  else { cta = `<button class="go" style="flex:1" onclick="setActive('${d.public_id}')">MAKE ACTIVE</button>`; }
-  const leave = sub ? `<button class="go ghost" style="flex:none;min-width:64px" onclick="unsubscribe('${d.public_id}')" title="leave program">leave</button>` : '';
-  h+=`</div><div class="bar">${cta}${leave}</div>${nav()}`;
+    h+=`<div class="srow" onclick="showDetail('${esc(en.id)}','progpage')">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
+  let fab;
+  if(!sub){ fab = free
+      ? `<button class="fab wide" onclick="enrollProgram('${d.public_id}')">SUBSCRIBE</button>`
+      : `<button class="fab wide" disabled>$${(d.price_cents/100).toFixed(2)} · SOON</button>`; }
+  else if(isActive){ fab = `<button class="fab" onclick="go('program')">START<br>SESSION</button>`; }
+  else { fab = `<button class="fab wide" onclick="setActive('${d.public_id}')">ACTIVATE</button>`; }
+  h+=`</div>${fab}${nav()}`;
   $.innerHTML=h;
 }
+window.progMenu=(ev,pid)=>{ ev.stopPropagation();
+  if(document.getElementById('ctxm')){ closeCtx(); return; }
+  CTX={prog:1};
+  const r=ev.currentTarget.getBoundingClientRect();
+  const m=document.createElement('div'); m.id='ctxm'; m.className='ctx';
+  m.style.top=(r.bottom+6)+'px'; m.style.right=Math.max(8,innerWidth-r.right)+'px'; m.style.left='auto';
+  m.innerHTML=`<button class="act red" onclick="closeCtx();unsubscribe('${esc(pid)}')">leave program</button>`;
+  document.body.appendChild(m);
+};
 window.enrollProgram=async pid=>{
   if(!confirm("add this program to your library? you'll get the trainer's updates live."))return;
   try{
