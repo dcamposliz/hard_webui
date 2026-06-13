@@ -492,11 +492,12 @@ function mediaSrc(id,size){
   else { const f=MEDIA[slug(id)]; u=f?('/media/'+f):null; }
   return rightSize(u,size);
 }
+const isVid=u=>/\.(mp4|webm|mov)(\?|$)/i.test(u||'')||/^data:video/.test(u||'');
+const mediaInner=src=>isVid(src)?`<video src="${src}" muted loop autoplay playsinline></video>`:`<img src="${src}" alt="" loading="lazy">`;
 function mediaHTML(id,cls){
   const src=mediaSrc(id, cls==='dthumb'?'detail':'thumb');
   if(!src) return `<div class="thumb ${cls||''}"><span class="ply">▶</span></div>`;
-  if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) return `<div class="thumb ${cls||''}"><video src="${src}" muted loop autoplay playsinline></video></div>`;
-  return `<div class="thumb ${cls||''}"><img src="${src}" alt="" loading="lazy"></div>`;
+  return `<div class="thumb ${cls||''}">${mediaInner(src)}</div>`;
 }
 
 /* ---------- tags + ratings ---------- */
@@ -1245,8 +1246,8 @@ async function stLoadProgs(){
 }
 const stExByKey=k=>(ST.my||[]).find(e=>e.original_name===k)||EXBY[k];
 const stName=k=>{const e=stExByKey(k);return e?e.suggested_name:k;};
-function stThumb(k){ const e=stExByKey(k); const src=e&&e.media_url;
-  return src?`<div class="thumb" style="width:44px;min-height:36px"><img src="${src}" loading="lazy"></div>`
+function stThumb(k){ const e=stExByKey(k); const src=rightSize(e&&e.media_url,'thumb');
+  return src?`<div class="thumb" style="width:44px;min-height:36px">${mediaInner(src)}</div>`
             :`<div class="thumb" style="width:44px;min-height:36px"><span class="ply" style="font-size:11px">▶</span></div>`; }
 function renderStudio(){
   document.body.classList.add('studio');
@@ -1305,12 +1306,12 @@ function stExEditHTML(){
     mus+=`<div class="mreg">${g}</div><div class="mpills">`+
       ms.map(m=>`<span class="mpill ${role(m.scientific)}" onclick="stCycleMus('${esc(m.scientific)}')">${esc(m.common||m.scientific)}</span>`).join('')+'</div>';
   }
-  const src=e.media_url;
+  const src=rightSize(e.media_url,'detail');
   return `<div class="st-head"><span class="st-btn" onclick="stGo('exercises')">← exercises</span><h2>${esc(e.suggested_name)}</h2></div>
   <div class="st-list">
     <div class="efield"><div class="lb">name</div><input class="txt" style="max-width:420px" value="${esc(e.suggested_name)}" onchange="stExField('name',this.value)"></div>
     <div class="efield"><div class="lb">media — gif / photo / short video (shared with every user)</div>
-      <div class="row" style="border:none;padding:0;gap:16px">${src?`<div class="thumb ethumb"><img src="${src}"></div>`:`<div class="thumb ethumb"><span class="ply">▶</span></div>`}
+      <div class="row" style="border:none;padding:0;gap:16px">${src?`<div class="thumb ethumb">${mediaInner(src)}</div>`:`<div class="thumb ethumb"><span class="ply">▶</span></div>`}
       <div style="display:flex;flex-direction:column;gap:8px">
         <input type="file" accept="image/*,video/mp4,video/webm" onchange="stMedia(event)">
         <span class="st-btn" onclick="stGiphy()">paste Giphy link</span>
@@ -1346,12 +1347,13 @@ window.stMedia=async ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)re
     else toast('upload failed');
   }catch(_){ toast('offline'); } };
 window.stGiphy=async()=>{ const url=prompt('paste a Giphy link (e.g. https://giphy.com/gifs/…)'); if(!url||!url.trim())return;
+  toast('saving media…');
   try{
     const r=await fetch(API+'/exercises/'+encodeURIComponent(ST.exKey)+'/media-url',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({url:url.trim()})});
-    if(r.ok){ const d=await r.json(); stExByKey(ST.exKey).media_url=d.media_url; toast('media saved'); renderStudio(); }
+    if(r.ok){ const d=await r.json(); stExByKey(ST.exKey).media_url=d.media_url; toast('✓ media saved'); renderStudio(); }
     else { const e=await r.json().catch(()=>({})); toast(e.error||'could not set link'); }
-  }catch(_){ toast('offline'); } };
+  }catch(_){ toast('offline — not saved'); } };
 window.stRetire=async()=>{ if(!confirm('retire this exercise? it disappears from the catalog (old programs keep working)'))return;
   try{
     const r=await fetch(API+'/exercises/'+encodeURIComponent(ST.exKey),{method:'DELETE',headers:{'Authorization':'Bearer '+syncToken()}});
