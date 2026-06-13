@@ -44,6 +44,8 @@
   .cnt .lbl{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-top:5px;}
   .meter{margin-top:14px;display:flex;gap:3px;height:5px;}
   .meter i{flex:1;background:var(--line-2);border-radius:1px;} .meter i.on{background:var(--ink);}
+  .cbar{margin-top:14px;height:14px;border-radius:999px;background:var(--paper-2);border:1px solid var(--line);overflow:hidden;}
+  .cbar i{display:block;height:100%;background:var(--red);border-radius:999px;transition:width .35s ease;}
   /* chips */
   .chips{flex:none;display:flex;gap:7px;overflow-x:auto;padding:12px 20px 13px;border-bottom:1px solid var(--line);scrollbar-width:none;}
   .chips::-webkit-scrollbar{display:none;}
@@ -904,8 +906,8 @@ function renderProgram(){
   let h=`<div class="hd">
     <div class="eye">${ap?`<span>${esc(ap.name)} · ${esc(ap.by)}</span>`:'<span>&nbsp;</span>'}</div>
     <div class="trow"><div class="ttl">the<br>program</div></div>
-    ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>
-    <div class="cycline"><span>${doneSlots}/${totalSlots} done this cycle</span><span class="evtog" style="padding:4px 10px" onclick="resetCycle()">↻ reset cycle</span></div>`:''}
+    ${totalSlots?`<div class="cbar"><i style="width:${Math.round(100*doneSlots/totalSlots)}%"></i></div>
+    <div class="cycline"><span>${doneSlots}/${totalSlots} done this cycle · ${Math.round(100*doneSlots/totalSlots)}%</span><span class="evtog" style="padding:4px 10px" onclick="resetCycle()">↻ reset cycle</span></div>`:''}
   </div>
   ${filterBar(true)}
   ${UI.showFilters?`<div class="gbar">${goalBtns()}</div>
