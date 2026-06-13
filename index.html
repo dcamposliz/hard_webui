@@ -269,7 +269,7 @@ let CAT={exercises:[]},EXBY={},M2R={},COMMON={},REGMUS={},MEDIA={};
 let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},tags:[],exTags:{},media:{},activeProgram:null};
 let UI={screen:'program',filter:'all',goal:'all',sort:'manual',showFilters:false,
         authMode:'login',authStage:null,authEmail:'',invite:'',pLang:'en',
-        did:null,from:'program',fid:null,ppid:null,sprintOpen:true,openSer:{},openSesSer:{},manageTags:false};
+        did:null,from:'program',fid:null,ppid:null,sprintOpen:true,openSer:{},openSesSer:{}};
 const PENDH=location.hash, PENDPATH=location.pathname;
 
 /* ---------- auth + sync ---------- */
@@ -404,35 +404,39 @@ function mediaHTML(id,cls){
 }
 
 /* ---------- tags + ratings ---------- */
-const tagById=tid=>DB.tags.find(t=>t.id===tid);
-const tagsOf=id=>((DB.exTags||{})[id]||[]).map(tagById).filter(Boolean);
+/* tags live ON the exercise entity ({name,color}, max 3) — same for everyone, edited by the owner */
+const tagsOf=id=>((EXBY[id]||{}).tags)||[];
 const tagLine=id=>{ const ts=tagsOf(id); return ts.length?`<div class="tline">${ts.map(t=>`<span class="tpill" style="--tc:${t.color}">${esc(t.name)}</span>`).join('')}</div>`:''; };
 const tagDots=id=>{ const ts=tagsOf(id); return ts.length?`<span style="display:inline-flex;gap:3px;flex:none">${ts.map(t=>`<span style="width:8px;height:8px;border-radius:50%;background:${t.color}"></span>`).join('')}</span>`:''; };
-const tagPicker=id=>`<div class="tpicks">${DB.tags.map(t=>{ const on=((DB.exTags||{})[id]||[]).includes(t.id);
-    return `<span class="tpick ${on?'on':''}" style="--tc:${t.color}" onclick="event.stopPropagation();toggleTag('${esc(id)}','${t.id}')">${esc(t.name)}</span>`; }).join('')}
-  <span class="tpick" style="--tc:var(--ink-3)" onclick="event.stopPropagation();newTag('${esc(id)}')">+ new tag</span></div>`;
-const tagManager=()=>DB.tags.length?DB.tags.map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
-    <span class="tpill" style="--tc:${t.color}">${esc(t.name)}</span>
-    <span class="evtog" style="padding:4px 10px" onclick="renameTag('${t.id}')">rename</span>
-    <span class="cpal" style="gap:6px">${COLORS.slice(1).map(c=>`<span class="cdot ${t.color===c?'onsel':''}" style="background:${c};border-color:${c};width:18px;height:18px" onclick="setTagColor('${t.id}','${c}')"></span>`).join('')}</span>
-    <button class="rm" onclick="deleteTag('${t.id}')">×</button></div>`).join(''):'<div class="legendln">no tags yet</div>';
-window.toggleTag=(id,tid)=>{ DB.exTags[id]=DB.exTags[id]||[];
-  const i=DB.exTags[id].indexOf(tid);
-  if(i>=0){ DB.exTags[id].splice(i,1); }
-  else { if(DB.exTags[id].length>=3){ toast('max 3 tags'); return; } DB.exTags[id].push(tid); }
-  save(); toast('saved'); render();
+const tagPal=()=>{ const seen={},out=[]; // every distinct tag in the loaded catalog = the palette
+  for(const e of CAT.exercises) for(const t of (e.tags||[])) if(t&&t.name&&!seen[t.name.toLowerCase()]){ seen[t.name.toLowerCase()]=1; out.push(t); }
+  return out.sort((a,b)=>a.name.localeCompare(b.name)); };
+const tagPicker=id=>{ const e=EXBY[id]||{};
+  if(!e.mine){ const ts=tagsOf(id);
+    return ts.length?`<div class="tpicks">${ts.map(t=>`<span class="tpick on" style="--tc:${t.color}">${esc(t.name)}</span>`).join('')}</div>`:'<div class="legendln">no tags</div>'; }
+  return `<div class="tpicks">${tagPal().map(t=>{ const on=tagsOf(id).some(x=>x.name===t.name);
+    return `<span class="tpick ${on?'on':''}" style="--tc:${t.color}" onclick="event.stopPropagation();toggleTag('${esc(id)}','${esc(t.name)}','${t.color}')">${esc(t.name)}</span>`; }).join('')}
+  <span class="tpick" style="--tc:var(--ink-3)" onclick="event.stopPropagation();newTag('${esc(id)}')">+ new tag</span></div>`; };
+async function pushExTags(id){ const e=EXBY[id];
+  try{
+    const r=await fetch(API+'/exercises/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},
+      body:JSON.stringify({tags:e.tags||[]})});
+    if(r.ok){ toast('saved'); try{localStorage.setItem('duro_excache',JSON.stringify(CAT.exercises));}catch(_){} }
+    else toast('save failed');
+  }catch(_){ toast('offline'); } }
+window.toggleTag=(id,name,color)=>{ const e=EXBY[id]; if(!e||!e.mine){ toast('not your exercise'); return; }
+  e.tags=e.tags||[];
+  const i=e.tags.findIndex(t=>t.name===name);
+  if(i>=0) e.tags.splice(i,1);
+  else { if(e.tags.length>=3){ toast('max 3 tags'); return; } e.tags.push({name,color}); }
+  pushExTags(id); render();
   const m=document.getElementById('ctxm'); if(m&&CTX) m.innerHTML=buildCtx(CTX.id); };
-window.newTag=id=>{ if((DB.exTags[id]||[]).length>=3){ toast('max 3 tags'); return; }
-  const name=prompt('tag name'); if(!name)return;
-  const t={id:'t'+Math.random().toString(36).slice(2,8),name:name.trim(),color:COLORS[1+(DB.tags.length%(COLORS.length-1))]};
-  DB.tags.push(t); DB.exTags[id]=DB.exTags[id]||[]; DB.exTags[id].push(t.id);
-  save(); toast('tag created'); render(); };
-window.renameTag=tid=>{ const t=tagById(tid); const n=prompt('tag name',t.name); if(n){t.name=n.trim()||t.name; save(); toast('saved'); render();} };
-window.setTagColor=(tid,c)=>{ const t=tagById(tid); t.color=c; save(); toast('saved'); render(); };
-window.deleteTag=tid=>{ const t=tagById(tid); if(!confirm(`delete tag "${t.name}" everywhere?`))return;
-  DB.tags=DB.tags.filter(x=>x.id!==tid);
-  Object.keys(DB.exTags).forEach(k=>{ DB.exTags[k]=DB.exTags[k].filter(x=>x!==tid); });
-  save(); toast('tag deleted'); render(); };
+window.newTag=id=>{ const e=EXBY[id]; if(!e||!e.mine){ toast('not your exercise'); return; }
+  if((e.tags||[]).length>=3){ toast('max 3 tags'); return; }
+  const raw=prompt('tag name'); if(!raw)return;
+  const nm=raw.trim(); if(!nm)return;
+  const ex=tagPal().find(t=>t.name.toLowerCase()===nm.toLowerCase()); // reuse existing name+color
+  toggleTag(id,ex?ex.name:nm,ex?ex.color:COLORS[1+(tagPal().length%(COLORS.length-1))]); };
 const ratingOf=id=>(DB.ratings||{})[id]||0;
 const starsHTML=id=>`<div class="stars">`+[1,2,3,4,5].map(n=>`<span class="star ${n<=ratingOf(id)?'on':''}" onclick="event.stopPropagation();setRating('${esc(id)}',${n})">★</span>`).join('')+`</div>`;
 window.setRating=(id,n)=>{ DB.ratings[id]=(DB.ratings[id]===n?0:n); save(); toast('saved'); render(); };
@@ -666,7 +670,7 @@ let LP={t:null,fired:false,x:0,y:0};
 document.addEventListener('pointerdown',ev=>{
   const row=ev.target.closest('[data-ctx]'); if(!row) return;
   if(ev.target.closest('.dh,.add,.rm,.star,.freq,button,select,input,#ctxm')) return;
-  if(ev.pointerType==='mouse'&&(ev.button!==0||(row.dataset.grp||'').startsWith('st:'))) return; // studio rows: mouse uses real right-click; hold = drag
+  if(ev.pointerType==='mouse'&&(ev.button!==0||(row.dataset.grp||'').startsWith('st:')||row.dataset.add!==undefined)) return; // studio rows: mouse uses real right-click; hold = drag
   const id=row.dataset.ctx; LP.x=ev.clientX; LP.y=ev.clientY; LP.fired=false;
   LP.t=setTimeout(()=>{ LP.fired=true; openCtx(LP.x,LP.y,id); },550);
 });
@@ -800,8 +804,8 @@ function renderProgram(){
   let entries=DB.program.map(p=>({p,e:EXBY[p.id]})).filter(x=>x.e);
   if(UI.goal!=='all') entries=entries.filter(x=>(x.e.goals||[]).includes(UI.goal));
   if(UI.filter!=='all') entries=entries.filter(x=>UI.filter in exGroups(x.e));
-  if(UI.sort==='tag'){ const key=x=>{ const ts=(DB.exTags[x.p.id]||[]); return ts.length?Math.min(...ts.map(tid=>DB.tags.findIndex(t=>t.id===tid))):99; };
-    entries.sort((a,b)=>key(a)-key(b)); }
+  if(UI.sort==='tag'){ const key=x=>{ const ts=tagsOf(x.p.id); return ts.length?ts.map(t=>t.name.toLowerCase()).sort()[0]:'￿'; };
+    entries.sort((a,b)=>key(a).localeCompare(key(b))); }
   else if(UI.sort==='region'){ const home=e=>GROUPS.findIndex(g=>exGroups(e)[g]==='pri'); entries.sort((a,b)=>home(a.e)-home(b.e)); }
   else if(UI.sort==='az') entries.sort((a,b)=>a.e.suggested_name.localeCompare(b.e.suggested_name));
   const numeric=DB.program.filter(p=>p.freq!=='every');
@@ -960,7 +964,7 @@ function renderExDetail(){
     ${(e.secondary||[]).map(m=>`<span class="chip sec">${esc(disp(m))}</span>`).join('')}</div>
     <div class="dmeta">${tagsHTML(e)}</div></div>
   <div class="efield"><div class="lb">rating</div>${starsHTML(id)}</div>
-  <div class="efield"><div class="lb">tags · <span style="cursor:pointer;text-decoration:underline" onclick="UI.manageTags=!UI.manageTags;render()">${UI.manageTags?'done':'manage'}</span></div>${UI.manageTags?tagManager():tagPicker(id)}</div>
+  <div class="efield"><div class="lb">tags</div>${tagPicker(id)}</div>
   </div>
   <div class="bar"><button class="go" style="width:100%" onclick="toggleSession('${esc(id)}');render()">${inSession(id)?'✓ IN TODAY\'S SESSION — TAP TO REMOVE':'+ ADD TO TODAY\'S SESSION'}</button></div>${nav()}`;
   $.innerHTML=h;
@@ -1025,7 +1029,12 @@ window.enrollProgram=async pid=>{
 /* ============================================================
    TRAINER STUDIO — its own application (/trainer)
    ============================================================ */
-let ST={view:'exercises', q:'', pq:'', my:null, progs:null, exKey:null, doc:null, dirty:false, target:'entries'};
+let ST={view:'exercises', q:'', pq:'', fgoal:'all', freg:'all', my:null, progs:null, exKey:null, doc:null, dirty:false, target:'entries'};
+const stFilterFit=e=>(ST.fgoal==='all'||(e.goals||[]).includes(ST.fgoal))&&(ST.freg==='all'||ST.freg in exGroups(e));
+const stFilterSel=()=>`<select class="st-search" style="flex:none;width:auto" onchange="ST.fgoal=this.value;renderStudio()">
+    ${['all','hypertrophy','mobility','therapy'].map(g=>`<option value="${g}" ${ST.fgoal===g?'selected':''}>${g==='all'?'all goals':g}</option>`).join('')}</select>
+  <select class="st-search" style="flex:none;width:auto" onchange="ST.freg=this.value;renderStudio()">
+    ${['all',...GROUPS].map(r=>`<option value="${r}" ${ST.freg===r?'selected':''}>${r==='all'?'all regions':r}</option>`).join('')}</select>`;
 async function stLoadMine(){
   try{
     const r=await fetch(API+'/exercises?mine=1',{headers:{'Authorization':'Bearer '+syncToken()}});
@@ -1067,14 +1076,15 @@ window.stGo=v=>{ if(ST.view==='pedit'&&ST.dirty&&!confirm('discard unsaved progr
 function stExercisesHTML(){
   if(ST.my===null){ stLoadMine().then(renderStudio); return '<div class="empty">loading…</div>'; }
   const t=ST.q.trim().toLowerCase();
-  const list=ST.my.filter(e=>!t||e.suggested_name.toLowerCase().includes(t)).sort((a,b)=>a.suggested_name.localeCompare(b.suggested_name));
+  const list=ST.my.filter(e=>(!t||e.suggested_name.toLowerCase().includes(t))&&stFilterFit(e)).sort((a,b)=>a.suggested_name.localeCompare(b.suggested_name));
   let h=`<div class="st-head"><h2>my exercises</h2><span class="meta">${ST.my.length}</span>
     <input class="st-search" id="stq" placeholder="search…" value="${esc(ST.q)}">
+    ${stFilterSel()}
     <span class="st-btn" style="margin-left:auto" onclick="stNewEx()">+ new exercise</span></div><div class="st-list">`;
   if(!list.length) h+='<div class="empty">nothing matches</div>';
   for(const e of list){
-    h+=`<div class="st-row" onclick="stEditEx('${esc(e.original_name)}')">${stThumb(e.original_name)}
-      <span class="nm">${esc(e.suggested_name)}</span>
+    h+=`<div class="st-row" onclick="stEditEx('${esc(e.original_name)}')" data-ctx="${esc(e.original_name)}" oncontextmenu="openCtxEv(event,'${esc(e.original_name)}')">${stThumb(e.original_name)}
+      <span class="nm">${esc(e.suggested_name)}</span>${tagDots(e.original_name)}
       <span class="goal ${(e.goals||[])[0]||''}">${(e.goals||[])[0]||''}</span>
       <span class="mut">${(e.primary||[]).length}p · ${(e.secondary||[]).length}s</span></div>`;
   }
@@ -1157,6 +1167,7 @@ function stProgramsHTML(){
       <span class="mut">${p.exercises} ex · ${p.series} series</span>
       <span class="goal" style="${p.published?'color:var(--red-ink)':''}">${p.published?(p.price_cents?'$'+(p.price_cents/100).toFixed(2):'published'):'draft'}</span>
       <span class="st-actions" onclick="event.stopPropagation()">
+        <span class="st-btn" onclick="stRenameProg('${p.public_id}')">rename</span>
         ${p.published?`<span class="st-btn" onclick="shareProgram('${p.public_id}')">link</span>`:''}
         <span class="st-btn" onclick="stPublish('${p.public_id}')">${p.published?'unpublish':'publish'}</span>
         <span class="st-btn" onclick="stPrice('${p.public_id}')">price</span>
@@ -1165,6 +1176,16 @@ function stProgramsHTML(){
   }
   return h+'</div>';
 }
+window.stRenameProg=async pid=>{
+  const p=(ST.progs||[]).find(x=>x.public_id===pid);
+  const cur=p?p.name:(ST.doc&&ST.doc.pid===pid?ST.doc.name:'');
+  const raw=prompt('program name',cur); if(!raw||!raw.trim()||raw.trim()===cur)return;
+  const name=raw.trim();
+  try{
+    const r=await fetch(API+'/programs/'+pid,{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({name})});
+    if(r.ok){ if(p)p.name=name; if(ST.doc&&ST.doc.pid===pid)ST.doc.name=name; toast('renamed'); renderStudio(); }
+    else toast('rename failed');
+  }catch(_){ toast('offline'); } };
 window.stNewProg=async()=>{
   const name=prompt('program name'); if(!name||!name.trim())return;
   try{
@@ -1209,17 +1230,17 @@ function stPeditHTML(){
   const d=ST.doc; if(!d){ST.view='programs';return stProgramsHTML();}
   const t=ST.pq.trim().toLowerCase();
   const inDoc=new Set([...d.entries.map(e=>e.id),...d.series.flatMap(s=>s.exIds)]);
-  const avail=(ST.my||[]).filter(e=>!t||e.suggested_name.toLowerCase().includes(t)).sort((a,b)=>a.suggested_name.localeCompare(b.suggested_name));
+  const avail=(ST.my||[]).filter(e=>(!t||e.suggested_name.toLowerCase().includes(t))&&stFilterFit(e)).sort((a,b)=>a.suggested_name.localeCompare(b.suggested_name));
   let L=`<div class="st-head"><h2 style="font-size:16px">my exercises</h2>
-    <input class="st-search" id="stpq" placeholder="search…" value="${esc(ST.pq)}" style="margin-left:auto"></div>
+    <input class="st-search" id="stpq" placeholder="search…" value="${esc(ST.pq)}" style="margin-left:auto">${stFilterSel()}</div>
     <div class="st-list">`;
   for(const e of avail){ const k=e.original_name;
-    L+=`<div class="st-row" data-add="${esc(k)}" onclick="stAdd('${esc(k)}')">${stThumb(k)}<span class="nm" style="${inDoc.has(k)?'color:var(--ink-3)':''}">${esc(e.suggested_name)}</span>
+    L+=`<div class="st-row" data-add="${esc(k)}" onclick="stAdd('${esc(k)}')" data-ctx="${esc(k)}" oncontextmenu="openCtxEv(event,'${esc(k)}')">${stThumb(k)}<span class="nm" style="${inDoc.has(k)?'color:var(--ink-3)':''}">${esc(e.suggested_name)}</span>${tagDots(k)}
       <span class="mut">${inDoc.has(k)?'in program':''}</span><button class="st-mini">+</button></div>`;
   }
   L+='</div>';
   const tgt=ST.target==='entries'?'loose exercises':((d.series.find(s=>s.id===ST.target)||{}).name||'?');
-  let R=`<div class="st-head"><h2 style="font-size:16px">${esc(d.name)}</h2>
+  let R=`<div class="st-head"><h2 style="font-size:16px;cursor:pointer" title="rename" onclick="stRenameProg('${d.pid}')">${esc(d.name)}</h2>
     <span class="st-target">adding to <b onclick="stCycleTarget()">${esc(tgt)} ▾</b></span>
     <span class="st-actions" style="margin-left:auto">
       <span class="st-btn" onclick="stNewSeries()">+ series</span>
