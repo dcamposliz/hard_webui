@@ -525,11 +525,6 @@ function sessionLeaves(){
 }
 const inSession=id=>sessionLeaves().includes(id);
 const seriesInSession=sid=>DB.session.some(it=>it.k==='s'&&it.sid===sid);
-function seedSession(){
-  if(DB.session.length) return;
-  DB.series.filter(s=>s.freq==='every'&&s.exIds.length).forEach(s=>DB.session.push({k:'s',sid:s.id}));
-  DB.program.filter(p=>p.freq==='every').forEach(p=>{ if(!inSession(p.id)) DB.session.push({k:'e',id:p.id}); });
-}
 window.toggleSession=id=>{
   const i=DB.session.findIndex(it=>it.k==='e'&&it.id===id);
   if(i>=0) DB.session.splice(i,1);
@@ -550,7 +545,7 @@ window.finish=()=>{
   DB.session.filter(it=>it.k==='s').forEach(it=>{ const s=DB.series.find(x=>x.id===it.sid);
     if(s&&s.exIds.length&&s.exIds.every(id=>DB.sessDone.includes(id))) DB.serDone[s.id]=(DB.serDone[s.id]||0)+1; });
   DB.sessDone.forEach(id=>{DB.doneCount[id]=(DB.doneCount[id]||0)+1;});
-  DB.sessDone=[]; DB.session=[]; seedSession(); save(); UI.screen='complete'; render();
+  DB.sessDone=[]; DB.session=[]; save(); UI.screen='complete'; render();
 };
 window.toggleSerOpen=sid=>{ UI.openSer[sid]=!UI.openSer[sid]; render(); };
 window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:false; rr(); };
@@ -1150,7 +1145,7 @@ window.enrollProgram=async pid=>{
     localStorage.removeItem('duro_sync_at');
     await pullState();                       // pulls the new library shape + hydrates
     toast('added to library');
-    if(res.active_id===pid){ await loadActiveProgram(); seedSession(); save(); go('program'); }
+    if(res.active_id===pid){ await loadActiveProgram(); save(); go('program'); }
     else render();                           // stays on detail, now showing MAKE ACTIVE
   }catch(_){ toast('offline'); }
 };
@@ -1160,7 +1155,7 @@ window.setActive=async pid=>{
     const r=await fetch(API+'/programs/'+pid+'/activate',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
     if(!r.ok){ toast('could not activate'); return; }
     DB.active_id=pid; hydrateActive();
-    await loadActiveProgram(); seedSession(); save();
+    await loadActiveProgram(); save();
     toast('now active'); go('program');
   }catch(_){ toast('offline'); }
 };
@@ -1478,7 +1473,6 @@ Promise.all([
   if(authed()){
     await loadExercises();
     await loadActiveProgram();   // pull the trainer's latest on every open
-    seedSession();
     if(PENDH.startsWith('#p/')) applyPath('/p/'+PENDH.slice(3));
     else applyPath(PENDPATH);
   }
