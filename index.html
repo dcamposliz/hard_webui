@@ -230,7 +230,7 @@
   .st-doc-row .nm{flex:1;font-family:var(--grot);font-weight:700;font-size:14px;min-width:0;}
   .st-mini{background:none;border:1px solid var(--line-2);border-radius:6px;color:var(--ink-2);width:26px;height:26px;font-size:12px;cursor:pointer;flex:none;}
   .st-freq{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--ink-2);border:1px solid var(--line-2);border-radius:999px;padding:3px 9px;cursor:pointer;white-space:nowrap;}
-  .st-serhd{display:flex;align-items:center;gap:9px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:14px;}
+  .st-serhd{display:flex;align-items:center;gap:9px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:14px;cursor:grab;user-select:none;-webkit-user-select:none;}
   .st-serhd .nm{flex:1;font-family:var(--grot);font-weight:800;font-size:14px;text-transform:uppercase;cursor:pointer;}
   .st-target{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);}
   .st-target b{color:var(--red-ink);cursor:pointer;}
@@ -678,6 +678,8 @@ document.addEventListener('pointerdown',ev=>{
   const hd=ev.target.closest('.dh');
   if(hd) row=hd.closest('[data-did]');
   else if(ev.pointerType==='mouse'){
+    const sh=ev.target.closest('.st-serhd[data-sec]'); // series header: click = rename/freq/etc, move = drag whole series
+    if(sh){ DRAG={spend:{hdr:sh,x:ev.clientX,y:ev.clientY}}; return; }
     const lr=ev.target.closest('[data-add]'); // left pane: could be a click (add to target) or a drag into the doc
     if(lr){ DRAG={pend:{key:lr.dataset.add,x:ev.clientX,y:ev.clientY,moved:false}}; return; }
     if(!ev.target.closest('button,.st-freq')) row=ev.target.closest('[data-did][data-grp^="st:"]'); // studio rows: grab anywhere
@@ -687,8 +689,27 @@ document.addEventListener('pointerdown',ev=>{
   DRAG={row,grp:row.dataset.grp};
   row.classList.add('lift');
 },{passive:false});
+const serBlock=h=>{ const els=[h]; let n=h.nextElementSibling; // header + its member rows
+  while(n&&!n.dataset.sec&&!n.classList.contains('st-serhd')){ els.push(n); n=n.nextElementSibling; }
+  return els; };
 document.addEventListener('pointermove',ev=>{
   if(!DRAG) return;
+  if(DRAG.spend){ const p=DRAG.spend;
+    if(Math.abs(ev.clientX-p.x)+Math.abs(ev.clientY-p.y)>5){ ev.preventDefault(); p.hdr.classList.add('lift'); DRAG={sblock:true,hdr:p.hdr}; }
+    return;
+  }
+  if(DRAG.sblock){ ev.preventDefault(); // move the whole series above/below other series blocks
+    for(const o of [...document.querySelectorAll('#stdoc .st-serhd[data-sec]')].filter(x=>x!==DRAG.hdr)){
+      const b=o.getBoundingClientRect();
+      if(ev.clientY>b.top&&ev.clientY<b.bottom){
+        const blk=serBlock(DRAG.hdr), obl=serBlock(o), par=o.parentNode;
+        const ref=ev.clientY<b.top+b.height/2?obl[0]:obl[obl.length-1].nextSibling;
+        blk.forEach(el=>par.insertBefore(el,ref));
+        break;
+      }
+    }
+    return;
+  }
   if(DRAG.pend){ // dragging out of MY EXERCISES: materialize a row once the cursor reaches the doc pane
     const p=DRAG.pend;
     if(Math.abs(ev.clientX-p.x)+Math.abs(ev.clientY-p.y)>5) p.moved=true;
@@ -727,6 +748,14 @@ document.addEventListener('pointermove',ev=>{
 },{passive:false});
 document.addEventListener('pointerup',()=>{
   if(!DRAG) return;
+  if(DRAG.spend){ DRAG=null; return; } // never moved — let the click through
+  if(DRAG.sblock){
+    SUPCLICK=true; DRAG.hdr.classList.remove('lift'); DRAG=null;
+    const d=ST.doc; if(!d) return;
+    const order=[...document.querySelectorAll('#stdoc .st-serhd[data-sec]')].map(h=>h.dataset.sec);
+    d.series.sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));
+    ST.dirty=true; renderStudio(); return;
+  }
   if(DRAG.pend){ if(DRAG.pend.moved) SUPCLICK=true; DRAG=null; return; } // drag started but never reached the doc
   if(DRAG.fromLeft) SUPCLICK=true; // real drop — eat the click so stAdd doesn't double-add
   DRAG.row.classList.remove('lift');
@@ -1195,7 +1224,6 @@ function stPeditHTML(){
   for(const s of d.series){
     R+=`<div class="st-serhd" data-sec="${s.id}"><span class="nm" onclick="stRenameSeries('${s.id}')">${esc(s.name)}</span>
       <span class="st-freq" onclick="stSerFreq('${s.id}')">${s.freq==='every'?'every session':s.freq+'×/cycle'}</span>
-      <button class="st-mini" onclick="ST.target='${s.id}';renderStudio()" title="add here">⊕</button>
       <button class="st-mini" onclick="stDelSeries('${s.id}')">×</button></div>`;
     s.exIds.forEach((k,i)=>{
       R+=`<div class="st-doc-row" style="margin-left:14px" data-did="${esc(k)}" data-grp="st:${s.id}"><span class="mut">${i+1}</span>${stThumb(k)}<span class="nm">${esc(stName(k))}</span>
@@ -1204,8 +1232,6 @@ function stPeditHTML(){
     });
   }
   R+=`<div data-sec="entries" style="height:0"></div>`; // invisible section marker: rows after this are loose
-  if(d.series.length&&d.entries.length) R+=`<div class="st-serhd" style="margin-top:18px"><span class="nm">loose exercises</span>
-    <button class="st-mini" onclick="ST.target='entries';renderStudio()" title="add here">⊕</button></div>`;
   d.entries.forEach((en,i)=>{
     R+=`<div class="st-doc-row" data-did="${esc(en.id)}" data-grp="st:entries"><span class="mut">${i+1}</span>${stThumb(en.id)}<span class="nm">${esc(stName(en.id))}</span>
       <span class="st-freq" onclick="stEntryFreq(${i})">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span>
