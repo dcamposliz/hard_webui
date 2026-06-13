@@ -217,7 +217,7 @@
   .st-head .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);}
   .st-search{background:var(--card);border:1px solid var(--line-2);color:var(--ink);padding:8px 12px;border-radius:8px;font-size:13px;outline:none;width:240px;}
   .st-list{flex:1;min-height:0;overflow-y:auto;padding:0 22px 30px;}
-  .st-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px;}
+  .st-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px;user-select:none;-webkit-user-select:none;}
   .st-row:hover{background:var(--card);}
   .st-row .nm{flex:1;font-family:var(--grot);font-weight:700;font-size:15px;min-width:0;overflow-wrap:anywhere;}
   .st-row .thumb{width:44px;min-height:36px;}
@@ -671,20 +671,40 @@ document.addEventListener('pointerup',()=>{ if(LP.t){clearTimeout(LP.t);LP.t=nul
 document.addEventListener('click',ev=>{ if(LP.fired){ ev.stopPropagation(); ev.preventDefault(); LP.fired=false; } },true);
 
 /* ---------- drag to reorder (program backlog "p", session "s") ---------- */
-let DRAG=null;
+let DRAG=null, SUPCLICK=false;
+document.addEventListener('click',ev=>{ if(SUPCLICK){SUPCLICK=false;ev.stopPropagation();ev.preventDefault();} },true);
 document.addEventListener('pointerdown',ev=>{
   let row=null;
   const hd=ev.target.closest('.dh');
   if(hd) row=hd.closest('[data-did]');
-  else if(ev.pointerType==='mouse'&&!ev.target.closest('button,.st-freq'))
-    row=ev.target.closest('[data-did][data-grp^="st:"]'); // studio rows: grab anywhere
+  else if(ev.pointerType==='mouse'){
+    const lr=ev.target.closest('[data-add]'); // left pane: could be a click (add to target) or a drag into the doc
+    if(lr){ DRAG={pend:{key:lr.dataset.add,x:ev.clientX,y:ev.clientY,moved:false}}; return; }
+    if(!ev.target.closest('button,.st-freq')) row=ev.target.closest('[data-did][data-grp^="st:"]'); // studio rows: grab anywhere
+  }
   if(!row) return;
   ev.preventDefault();
   DRAG={row,grp:row.dataset.grp};
   row.classList.add('lift');
 },{passive:false});
 document.addEventListener('pointermove',ev=>{
-  if(!DRAG) return; ev.preventDefault();
+  if(!DRAG) return;
+  if(DRAG.pend){ // dragging out of MY EXERCISES: materialize a row once the cursor reaches the doc pane
+    const p=DRAG.pend;
+    if(Math.abs(ev.clientX-p.x)+Math.abs(ev.clientY-p.y)>5) p.moved=true;
+    if(!p.moved) return;
+    ev.preventDefault();
+    const cont=document.getElementById('stdoc'); if(!cont){DRAG=null;return;}
+    if(ev.clientX>cont.getBoundingClientRect().left-20){
+      const el=document.createElement('div');
+      el.className='st-doc-row lift'; el.dataset.did=p.key; el.dataset.grp='st:drop';
+      el.innerHTML=`${stThumb(p.key)}<span class="nm">${esc(stName(p.key))}</span>`;
+      cont.appendChild(el);
+      DRAG={row:el,grp:'st:drop',fromLeft:true};
+    }
+    return;
+  }
+  ev.preventDefault();
   const st=DRAG.grp.startsWith('st:'); // studio doc: drag across sections
   const sibs=[...document.querySelectorAll(st?'[data-grp^="st:"]':`[data-grp="${DRAG.grp}"]`)].filter(r=>r!==DRAG.row);
   for(const s of sibs){
@@ -707,6 +727,8 @@ document.addEventListener('pointermove',ev=>{
 },{passive:false});
 document.addEventListener('pointerup',()=>{
   if(!DRAG) return;
+  if(DRAG.pend){ if(DRAG.pend.moved) SUPCLICK=true; DRAG=null; return; } // drag started but never reached the doc
+  if(DRAG.fromLeft) SUPCLICK=true; // real drop — eat the click so stAdd doesn't double-add
   DRAG.row.classList.remove('lift');
   const grp=DRAG.grp; DRAG=null;
   const ids=[...document.querySelectorAll(`[data-grp="${grp}"]`)].map(r=>r.dataset.did);
@@ -1158,7 +1180,7 @@ function stPeditHTML(){
     <input class="st-search" id="stpq" placeholder="search…" value="${esc(ST.pq)}" style="margin-left:auto"></div>
     <div class="st-list">`;
   for(const e of avail){ const k=e.original_name;
-    L+=`<div class="st-row" onclick="stAdd('${esc(k)}')">${stThumb(k)}<span class="nm" style="${inDoc.has(k)?'color:var(--ink-3)':''}">${esc(e.suggested_name)}</span>
+    L+=`<div class="st-row" data-add="${esc(k)}" onclick="stAdd('${esc(k)}')">${stThumb(k)}<span class="nm" style="${inDoc.has(k)?'color:var(--ink-3)':''}">${esc(e.suggested_name)}</span>
       <span class="mut">${inDoc.has(k)?'in program':''}</span><button class="st-mini">+</button></div>`;
   }
   L+='</div>';
