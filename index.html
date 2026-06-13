@@ -1043,7 +1043,9 @@ window.showDetail=(id,from)=>{ UI.did=id; UI.from=from||UI.screen; UI.screen='ex
 function renderExDetail(){
   const e=EXBY[UI.did]; if(!e) return go(UI.from||'program');
   const id=UI.did;
-  let h=`<div class="backlnk" onclick="go('${esc(UI.from||'program')}')">← ${esc(UI.from||'program')}</div>
+  const fromS=UI.from||'program';
+  const backLbl={progpage:'program',programs:'programs',program:'program',session:'session',find:'find'}[fromS]||'back';
+  let h=`<div class="backlnk" onclick="go('${esc(fromS)}')">← ${esc(backLbl)}</div>
   <div class="hd" style="padding-top:10px">
     <div class="eye"><span>EXERCISE</span><span>${(e.goals||[]).join(' · ')}</span></div>
     <div class="trow"><div class="ttl" style="font-size:30px">${esc(e.suggested_name)}</div></div>
