@@ -1224,7 +1224,10 @@ function stExEditHTML(){
     <div class="efield"><div class="lb">name</div><input class="txt" style="max-width:420px" value="${esc(e.suggested_name)}" onchange="stExField('name',this.value)"></div>
     <div class="efield"><div class="lb">media — gif / photo / short video (shared with every user)</div>
       <div class="row" style="border:none;padding:0;gap:16px">${src?`<div class="thumb ethumb"><img src="${src}"></div>`:`<div class="thumb ethumb"><span class="ply">▶</span></div>`}
-      <input type="file" accept="image/*,video/mp4,video/webm" onchange="stMedia(event)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input type="file" accept="image/*,video/mp4,video/webm" onchange="stMedia(event)">
+        <span class="st-btn" onclick="stGiphy()">paste Giphy link</span>
+      </div></div></div>
     <div class="efield"><div class="lb">notes / cues</div><textarea class="txt" rows="3" style="max-width:420px;font-weight:400;font-size:14px" onchange="stExField('note',this.value)">${esc(e.note||'')}</textarea></div>
     <div class="efield"><div class="lb">goals</div><div class="mpills">${['hypertrophy','mobility','therapy'].map(g=>`<span class="mpill ${(e.goals||[]).includes(g)?'p':''}" onclick="stGoal('${g}')">${g}</span>`).join('')}</div></div>
     <div class="efield"><div class="lb">muscles — tap: none → primary → secondary</div>${mus}</div>
@@ -1254,6 +1257,13 @@ window.stMedia=async ev=>{ const f=ev.target.files&&ev.target.files[0]; if(!f)re
     const r=await fetch(API+'/exercises/'+encodeURIComponent(ST.exKey)+'/media',{method:'POST',headers:{'Content-Type':f.type,'Authorization':'Bearer '+syncToken()},body:f});
     if(r.ok){ const d=await r.json(); stExByKey(ST.exKey).media_url=d.media_url; toast('media saved'); renderStudio(); }
     else toast('upload failed');
+  }catch(_){ toast('offline'); } };
+window.stGiphy=async()=>{ const url=prompt('paste a Giphy link (e.g. https://giphy.com/gifs/…)'); if(!url||!url.trim())return;
+  try{
+    const r=await fetch(API+'/exercises/'+encodeURIComponent(ST.exKey)+'/media-url',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+syncToken()},body:JSON.stringify({url:url.trim()})});
+    if(r.ok){ const d=await r.json(); stExByKey(ST.exKey).media_url=d.media_url; toast('media saved'); renderStudio(); }
+    else { const e=await r.json().catch(()=>({})); toast(e.error||'could not set link'); }
   }catch(_){ toast('offline'); } };
 window.stRetire=async()=>{ if(!confirm('retire this exercise? it disappears from the catalog (old programs keep working)'))return;
   try{
