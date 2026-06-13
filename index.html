@@ -215,6 +215,10 @@
   .ribbon{display:inline-block;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;
     letter-spacing:.12em;text-transform:uppercase;padding:4px 11px;border-radius:999px;margin-top:8px;}
   .gear{flex:none;background:none;border:1px solid var(--line-2);border-radius:9px;color:var(--ink-2);width:36px;height:36px;font-size:17px;cursor:pointer;}
+  .cyc{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);border-radius:999px;padding:2px 8px;margin-top:5px;}
+  .cyc.met{background:var(--red);border-color:var(--red);color:#fff;}
+  .row.cdone{opacity:.62;}
+  .cycline{display:flex;align-items:center;gap:12px;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--ink-3);}
   /* tinder-style session progress dots */
   .pdots{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:24;display:flex;justify-content:center;gap:6px;pointer-events:none;}
   .pdots i{width:7px;height:7px;border-radius:50%;background:var(--line-2);}
@@ -443,6 +447,10 @@ function exGroups(e){
 }
 const priGroups=e=>Object.entries(exGroups(e)).filter(([,r])=>r==='pri').map(([g])=>g);
 const countOf=id=>(DB.doneCount[id]||0)+(DB.sessDone.includes(id)?1:0);
+// how an entry stands in the current cycle. 'every session' entries have no cycle target.
+const cycleState=p=>{ if(!p||p.freq==='every') return null; const done=countOf(p.id); return {done,target:p.freq,met:done>=p.freq}; };
+window.resetCycle=()=>{ if(!confirm('reset this cycle? clears your progress and starts the program fresh.'))return;
+  DB.doneCount={}; DB.serDone={}; DB.sessDone=[]; save(); toast('cycle reset'); render(); };
 function coverage(){
   const c={}; GROUPS.forEach(g=>c[g]=0);
   const ids=new Set([...Object.keys(DB.doneCount),...DB.sessDone]);
@@ -896,7 +904,8 @@ function renderProgram(){
   let h=`<div class="hd">
     <div class="eye">${ap?`<span>${esc(ap.name)} · ${esc(ap.by)}</span>`:'<span>&nbsp;</span>'}</div>
     <div class="trow"><div class="ttl">the<br>program</div></div>
-    ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>`:''}
+    ${totalSlots?`<div class="meter">${Array.from({length:totalSlots},(_,i)=>`<i class="${i<doneSlots?'on':''}"></i>`).join('')}</div>
+    <div class="cycline"><span>${doneSlots}/${totalSlots} done this cycle</span><span class="evtog" style="padding:4px 10px" onclick="resetCycle()">↻ reset cycle</span></div>`:''}
   </div>
   ${filterBar(true)}
   ${UI.showFilters?`<div class="gbar">${goalBtns()}</div>
@@ -918,8 +927,10 @@ function renderProgram(){
       return `<div class="ordrow" style="padding-left:44px;background:var(--paper-2)"><span class="num">${i+1}</span><span class="exn" style="font-size:14px;color:var(--ink-2)">${esc(e?e.suggested_name:xid)}</span></div>`; }).join('');
     return r; };
   const progRow=({p,e},picked)=>{ const id=p.id;
-    return `<div class="row ${picked?'in':''}" data-ctx="${esc(id)}" oncontextmenu="openCtxEv(event,'${esc(id)}')" ${picked?'':`data-did="${esc(id)}" data-grp="p"`}>
-        ${mediaHTML(id)}<div class="rb" onclick="showDetail('${esc(id)}','program')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span>${freqDisp(p)}</div><div class="tags">${tagsHTML(e)}</div>${starsHTML(id)}</div>
+    const c=cycleState(p);
+    const cyc=c?(c.met?`<span class="cyc met">✓ done this cycle</span>`:(c.done>0?`<span class="cyc">${c.done}/${c.target} this cycle</span>`:'')):'';
+    return `<div class="row ${picked?'in':''} ${c&&c.met?'cdone':''}" data-ctx="${esc(id)}" oncontextmenu="openCtxEv(event,'${esc(id)}')" ${picked?'':`data-did="${esc(id)}" data-grp="p"`}>
+        ${mediaHTML(id)}<div class="rb" onclick="showDetail('${esc(id)}','program')">${tagLine(id)}<div class="rtop"><span class="${nameCls(e)}">${esc(e.suggested_name)}</span>${freqDisp(p)}</div><div class="tags">${tagsHTML(e)}</div>${cyc}${starsHTML(id)}</div>
         <div class="add" onclick="event.stopPropagation();toggleSession('${esc(id)}')">${picked?'✓':'+'}</div>
         ${(!picked&&draggable)?'<span class="dh">≡</span>':''}</div>`; };
   const serOut=DB.series.filter(s=>!seriesInSession(s.id)), serIn=DB.series.filter(s=>seriesInSession(s.id));
@@ -937,9 +948,15 @@ function renderProgram(){
     h+=`<div class="serhd">series</div>`;
     h+=serOut.map(s=>serRow(s,false)).join('');
   }
-  if(entOut.length){
+  const entPending=entOut.filter(x=>{ const c=cycleState(x.p); return !(c&&c.met); });
+  const entDone=entOut.filter(x=>{ const c=cycleState(x.p); return c&&c.met; });
+  if(entPending.length){
     if(serOut.length) h+=`<div class="serhd">exercises</div>`;
-    h+=entOut.map(x=>progRow(x,false)).join('');
+    h+=entPending.map(x=>progRow(x,false)).join('');
+  }
+  if(entDone.length){
+    h+=`<div class="serhd" style="border-top:2px solid var(--line);padding-top:16px;color:var(--ink-3)">✓ completed this cycle · ${entDone.length}</div>`;
+    h+=entDone.map(x=>progRow(x,false)).join('');
   }
   if(!DB.program.length&&!DB.series.length){
     h+=`<div class="empty">no program yet.<br><br><span class="evtog" onclick="go('find')">browse programs →</span></div>`;
