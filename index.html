@@ -451,6 +451,7 @@ const priGroups=e=>Object.entries(exGroups(e)).filter(([,r])=>r==='pri').map(([g
 const countOf=id=>(DB.doneCount[id]||0)+(DB.sessDone.includes(id)?1:0);
 // how an entry stands in the current cycle. 'every session' entries have no cycle target.
 const cycleState=p=>{ if(!p||p.freq==='every') return null; const done=countOf(p.id); return {done,target:p.freq,met:done>=p.freq}; };
+const serCycleState=s=>{ if(!s||s.freq==='every') return null; const done=DB.serDone[s.id]||0; return {done,target:s.freq,met:done>=s.freq}; };
 window.resetCycle=()=>{ if(!confirm('reset this cycle? clears your progress and starts the program fresh.'))return;
   DB.doneCount={}; DB.serDone={}; DB.sessDone=[]; save(); toast('cycle reset'); render(); };
 function coverage(){
@@ -919,10 +920,12 @@ function renderProgram(){
   // a subscribed program is the trainer's live structure — not the trainee's to reorder (fork to customize)
   const draggable=!DB.activeProgram&&UI.filter==='all'&&UI.goal==='all'&&UI.sort==='manual';
   const serRow=(s,inn)=>{ const open=!!UI.openSer[s.id];
-    let r=`<div class="row ser ${inn?'in':''}">
+    const sc=serCycleState(s);
+    const scyc=sc?(sc.met?`<span class="cyc met">✓ done this cycle</span>`:''):'';
+    let r=`<div class="row ser ${inn?'in':''} ${sc&&sc.met?'cdone':''}">
         <div class="thumb sthumb" style="width:78px;min-height:74px"><span class="ply" style="font-size:17px">≣</span><span class="ct2">${s.exIds.length}</span></div>
         <div class="rb" onclick="toggleSerOpen('${s.id}')"><div class="rtop"><span class="sname">${esc(s.name)}</span><span class="goal">series</span></div>
-          <div class="smeta"><span>${s.exIds.length} exercise${s.exIds.length===1?'':'s'}</span>${serFreqDisp(s)}</div></div>
+          <div class="smeta"><span>${s.exIds.length} exercise${s.exIds.length===1?'':'s'}</span>${serFreqDisp(s)}${scyc}</div></div>
         <button class="mv" style="align-self:center" onclick="toggleSerOpen('${s.id}')">${open?'▾':'▸'}</button>
         <div class="add" onclick="event.stopPropagation();toggleSeries('${s.id}')">${inn?'✓':'+'}</div></div>`;
     if(open) r+=s.exIds.map((xid,i)=>{ const e=EXBY[xid];
@@ -946,18 +949,22 @@ function renderProgram(){
     }
     h+=`<div class="serhd" style="border-top:2px solid var(--ink);padding-top:16px">backlog</div>`;
   }
-  if(serOut.length){
-    h+=`<div class="serhd">series</div>`;
-    h+=serOut.map(s=>serRow(s,false)).join('');
-  }
+  const serPending=serOut.filter(s=>{ const c=serCycleState(s); return !(c&&c.met); });
+  const serComplete=serOut.filter(s=>{ const c=serCycleState(s); return c&&c.met; });
   const entPending=entOut.filter(x=>{ const c=cycleState(x.p); return !(c&&c.met); });
   const entDone=entOut.filter(x=>{ const c=cycleState(x.p); return c&&c.met; });
+  if(serPending.length){
+    h+=`<div class="serhd">series</div>`;
+    h+=serPending.map(s=>serRow(s,false)).join('');
+  }
   if(entPending.length){
-    if(serOut.length) h+=`<div class="serhd">exercises</div>`;
+    if(serPending.length) h+=`<div class="serhd">exercises</div>`;
     h+=entPending.map(x=>progRow(x,false)).join('');
   }
-  if(entDone.length){
-    h+=`<div class="serhd" style="border-top:2px solid var(--line);padding-top:16px;color:var(--ink-3)">✓ completed this cycle · ${entDone.length}</div>`;
+  const doneCount=serComplete.length+entDone.length;
+  if(doneCount){
+    h+=`<div class="serhd" style="border-top:2px solid var(--line);padding-top:16px;color:var(--ink-3)">✓ completed this cycle · ${doneCount}</div>`;
+    h+=serComplete.map(s=>serRow(s,false)).join('');
     h+=entDone.map(x=>progRow(x,false)).join('');
   }
   if(!DB.program.length&&!DB.series.length){
