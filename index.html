@@ -1012,7 +1012,7 @@ function renderProgPage(){
   for(const en of (c.entries||[])){ const e=EXBY[en.id];
     h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
   h+=`</div><div class="bar">
-    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'START THIS PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
+    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'SIGN UP FOR PROGRAM':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
   $.innerHTML=h;
 }
 window.enrollProgram=async pid=>{
