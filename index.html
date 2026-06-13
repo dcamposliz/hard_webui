@@ -1016,7 +1016,7 @@ function renderProgPage(){
   $.innerHTML=h;
 }
 window.enrollProgram=async pid=>{
-  if(!confirm('start this program? it replaces your current program (your ratings and tags survive)'))return;
+  if(!confirm('sign up for this program? it replaces your current program (your ratings survive)'))return;
   try{
     const r=await fetch(API+'/programs/'+pid+'/enroll',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
     if(r.status===402){ toast('paid program — payments coming soon'); return; }
