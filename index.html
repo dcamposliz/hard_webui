@@ -159,8 +159,8 @@
   .cpal .cdot{width:28px;height:28px;}
   .cdot.onsel{outline:2px solid var(--ink);outline-offset:2px;}
   /* exercise detail */
-  .dthumb{width:100%;max-width:340px;height:200px;min-height:200px;align-self:auto;border-radius:16px;}
-  .dthumb img,.dthumb video{object-fit:cover;}
+  .dthumb{width:100%;max-width:none;height:auto;min-height:0;align-self:auto;border-radius:16px;}
+  .dthumb img,.dthumb video{width:100%;height:auto;max-height:72vh;object-fit:contain;display:block;}
   .dmeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
   /* drag */
   .dh{flex:none;align-self:center;color:var(--ink-3);font-size:14px;padding:6px 5px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
