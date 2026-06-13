@@ -464,14 +464,22 @@ const disp=m=>{ const c=COMMON[m]; return c?`${m} (${c})`:m; };
 
 /* ---------- media ---------- */
 const slug=s=>(''+s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-function mediaSrc(id){
+// Giphy's giphy.gif is the multi-MB ORIGINAL. Swap in a right-sized WebP rendition:
+// ~335KB for thumbnails, ~1MB for the big detail view. (Non-Giphy urls untouched.)
+function rightSize(u,size){
+  if(!u||!/\.giphy\.com\/media\//.test(u)) return u;
+  return u.replace(/[^\/?#]+(?=$|[?#])/, size==='detail'?'giphy.webp':'200w.webp');
+}
+function mediaSrc(id,size){
   const e=EXBY[id];
-  if(e&&e.media_url) return e.media_url;
-  if(DB.media&&DB.media[id]) return DB.media[id];
-  const f=MEDIA[slug(id)]; return f?('/media/'+f):null;
+  let u=null;
+  if(e&&e.media_url) u=e.media_url;
+  else if(DB.media&&DB.media[id]) u=DB.media[id];
+  else { const f=MEDIA[slug(id)]; u=f?('/media/'+f):null; }
+  return rightSize(u,size);
 }
 function mediaHTML(id,cls){
-  const src=mediaSrc(id);
+  const src=mediaSrc(id, cls==='dthumb'?'detail':'thumb');
   if(!src) return `<div class="thumb ${cls||''}"><span class="ply">▶</span></div>`;
   if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) return `<div class="thumb ${cls||''}"><video src="${src}" muted loop autoplay playsinline></video></div>`;
   return `<div class="thumb ${cls||''}"><img src="${src}" alt="" loading="lazy"></div>`;
@@ -1021,7 +1029,7 @@ window.focusSkip=id=>{ const leaves=sessionLeaves(), ci=leaves.indexOf(id); // a
 function renderFocus(){
   const id=UI.fid, e=EXBY[id]; if(!e) return go('session');
   const d=DB.sessDone.includes(id);
-  const src=mediaSrc(id);
+  const src=mediaSrc(id,'detail');
   let media;
   if(!src) media=`<span class="ply">▶</span>`;
   else if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) media=`<video src="${src}" muted loop autoplay playsinline></video>`;
