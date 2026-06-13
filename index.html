@@ -475,11 +475,14 @@ const disp=m=>{ const c=COMMON[m]; return c?`${m} (${c})`:m; };
 
 /* ---------- media ---------- */
 const slug=s=>(''+s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-// Giphy's giphy.gif is the multi-MB ORIGINAL. Swap in a right-sized WebP rendition:
-// ~335KB for thumbnails, ~1MB for the big detail view. (Non-Giphy urls untouched.)
+// Giphy's giphy.gif is the multi-MB ORIGINAL. Serve the MP4 rendition instead — it's
+// ~20x smaller AND streams (plays while loading) like a YouTube video, not a monolithic
+// GIF blob. ~170KB (200w.mp4) for thumbnails, ~0.5MB (giphy.mp4) for the big view.
+// mediaHTML/renderFocus render .mp4 as <video muted loop autoplay playsinline>.
+// (Non-Giphy urls untouched.)
 function rightSize(u,size){
   if(!u||!/\.giphy\.com\/media\//.test(u)) return u;
-  return u.replace(/[^\/?#]+(?=$|[?#])/, size==='detail'?'giphy.webp':'200w.webp');
+  return u.replace(/[^\/?#]+(?=$|[?#])/, size==='detail'?'giphy.mp4':'200w.mp4');
 }
 function mediaSrc(id,size){
   const e=EXBY[id];
@@ -1059,7 +1062,7 @@ window.focusSkip=id=>{ const leaves=sessionLeaves(), ci=leaves.indexOf(id); // a
 function renderFocus(){
   const id=UI.fid, e=EXBY[id]; if(!e) return go('session');
   const d=DB.sessDone.includes(id);
-  const src=mediaSrc(id);   // light 200w.webp — speed matters mid-session
+  const src=mediaSrc(id,'detail');   // streaming mp4 — starts playing while it loads
   let media;
   if(!src) media=`<span class="ply">▶</span>`;
   else if(/\.(mp4|webm|mov)(\?|$)/i.test(src)||/^data:video/.test(src)) media=`<video src="${src}" muted loop autoplay playsinline></video>`;
@@ -1077,9 +1080,9 @@ function renderFocus(){
       ${remaining>1?`<button class="go ghost" style="flex:none;width:auto;padding:20px 18px" onclick="focusSkip('${esc(id)}')">SKIP →</button>`:''}
       <button class="go" style="flex:1" onclick="focusDone('${esc(id)}')">${d?'✓ DONE — TAP TO UNDO':'MARK DONE'}</button></div>
   </div>`;
-  // preload the next couple of exercises' media so advancing is instant
+  // warm the next couple of exercises' media so advancing is instant
   const up=leaves.filter((x,i)=>i>pos&&!DB.sessDone.includes(x)).slice(0,2);
-  up.forEach(x=>{ const u=mediaSrc(x); if(u&&!/\.(mp4|webm|mov)(\?|$)/i.test(u)){ const im=new Image(); im.src=u; } });
+  up.forEach(x=>{ const u=mediaSrc(x,'detail'); if(u) fetch(u,{mode:'no-cors'}).catch(()=>{}); });
 }
 window.showDetail=(id,from)=>{ UI.did=id; UI.from=from||UI.screen; UI.screen='exdetail'; render(); };
 function renderExDetail(){
