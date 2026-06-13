@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="/">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>HARD</title>
-<link rel="icon" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1C1814">
@@ -467,7 +468,7 @@ function mediaSrc(id){
   const e=EXBY[id];
   if(e&&e.media_url) return e.media_url;
   if(DB.media&&DB.media[id]) return DB.media[id];
-  const f=MEDIA[slug(id)]; return f?('media/'+f):null;
+  const f=MEDIA[slug(id)]; return f?('/media/'+f):null;
 }
 function mediaHTML(id,cls){
   const src=mediaSrc(id);
@@ -1464,8 +1465,8 @@ function render(){
 
 /* ---------- boot ---------- */
 Promise.all([
-  fetch('./docs/muscle-region-map.json').then(r=>r.json()),
-  fetch('./media/manifest.json').then(r=>r.json()).catch(()=>[])
+  fetch('/docs/muscle-region-map.json').then(r=>r.json()),
+  fetch('/media/manifest.json').then(r=>r.json()).catch(()=>[])
 ]).then(async([map,mediaList])=>{
   loadLocal();
   map.muscles.forEach(m=>{ M2R[m.scientific]=m.regions; COMMON[m.scientific]=m.common; m.regions.forEach(r=>{(REGMUS[r]=REGMUS[r]||[]).push(m);}); });
@@ -1479,6 +1480,6 @@ Promise.all([
   render();
   pullState();
 }).catch(e=>{ $.innerHTML='<div class="empty">failed to load — '+esc(String(e))+'</div>'; });
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body></html>
