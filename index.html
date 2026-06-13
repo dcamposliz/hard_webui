@@ -1281,7 +1281,7 @@ function stExercisesHTML(){
   if(!list.length) h+='<div class="empty">nothing matches</div>';
   for(const e of list){
     h+=`<div class="st-row" onclick="stEditEx('${esc(e.original_name)}')" data-ctx="${esc(e.original_name)}" oncontextmenu="openCtxEv(event,'${esc(e.original_name)}')">${stThumb(e.original_name)}
-      <span class="nm">${esc(e.suggested_name)}</span>${tagDots(e.original_name)}
+      <div style="flex:1;min-width:0"><span class="nm">${esc(e.suggested_name)}</span>${tagLine(e.original_name)}</div>
       <span class="goal ${(e.goals||[])[0]||''}">${(e.goals||[])[0]||''}</span>
       <span class="mut">${(e.primary||[]).length}p · ${(e.secondary||[]).length}s</span></div>`;
   }
