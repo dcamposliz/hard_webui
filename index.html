@@ -121,6 +121,7 @@
   .bn{font-weight:900;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;}
   .track{flex:1;height:4px;border-radius:2px;background:oklch(0.42 0.01 75);overflow:hidden;} .track i{display:block;height:100%;background:var(--red);}
   .go{flex:none;background:var(--red);color:var(--paper);border:none;border-radius:11px;padding:13px 18px;font-family:var(--grot);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;}
+  .go.ghost{background:transparent;color:var(--ink-3);border:1px solid var(--line);}
   /* complete */
   .complete{flex:1;display:flex;flex-direction:column;padding:60px 24px 24px;overflow-y:auto;min-height:0;}
   .complete .ce{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
@@ -266,7 +267,7 @@ const $=document.getElementById('app');
 
 /* ---------- state ---------- */
 let CAT={exercises:[]},EXBY={},M2R={},COMMON={},REGMUS={},MEDIA={};
-let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},tags:[],exTags:{},media:{},activeProgram:null};
+let DB={program:[],series:[],session:[],sessDone:[],doneCount:{},serDone:{},ratings:{},tags:[],exTags:{},media:{},activeProgram:null,subscriptions:[],active_id:null};
 let UI={screen:'program',filter:'all',goal:'all',sort:'manual',showFilters:false,
         authMode:'login',authStage:null,authEmail:'',invite:'',pLang:'en',
         did:null,from:'program',fid:null,ppid:null,sprintOpen:true,openSer:{},openSesSer:{}};
@@ -309,6 +310,7 @@ async function pullState(){
     let dirty=false;
     if(d.state&&Object.keys(d.state).length&&d.updated_at!==known){
       DB=Object.assign(DB,d.state);
+      ensureLibraryShape(); hydrateActive();
       localStorage.setItem('hard_mvp',JSON.stringify(DB));
       localStorage.setItem('duro_sync_at',d.updated_at);
       dirty=true; toast('synced');
@@ -319,9 +321,43 @@ async function pullState(){
     if(dirty) render();
   }catch(_){/* offline */}
 }
-const save=()=>{ localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
-/* subscribed program: read the trainer's content LIVE so their edits propagate.
-   progress (doneCount/serDone/session/sessDone) is the trainee's and is left untouched. */
+const save=()=>{ dehydrateActive(); localStorage.setItem('hard_mvp',JSON.stringify(DB)); schedulePush(); };
+
+/* ---------- program library: many subscriptions, one active ----------
+   Each subscription holds its OWN cycle progress. The active sub's progress is mirrored
+   into the flat DB fields (doneCount/serDone/session/sessDone) that every renderer reads;
+   hydrate copies sub→flat, dehydrate copies flat→sub. */
+const PROGKEYS=['doneCount','serDone','session','sessDone'];
+const activeSub=()=>(DB.subscriptions||[]).find(s=>s.public_id===DB.active_id)||null;
+function normProgress(pr){ pr=pr||{};
+  return {doneCount:pr.doneCount||{},serDone:pr.serDone||{},
+          session:(pr.session||[]).map(it=>typeof it==='string'?{k:'e',id:it}:it),
+          sessDone:pr.sessDone||[]}; }
+function ensureLibraryShape(){
+  if(!Array.isArray(DB.subscriptions)) DB.subscriptions=[];
+  if(DB.active_id===undefined) DB.active_id=null;
+  DB.subscriptions.forEach(s=>{ s.progress=normProgress(s.progress); });
+  // migrate legacy single-program state (activeProgram + flat progress) into one subscription
+  if(!DB.subscriptions.length && DB.activeProgram && DB.activeProgram.public_id){
+    DB.subscriptions=[{public_id:DB.activeProgram.public_id,name:DB.activeProgram.name||'',by:DB.activeProgram.by||'',
+      progress:normProgress({doneCount:DB.doneCount,serDone:DB.serDone,session:DB.session,sessDone:DB.sessDone})}];
+    DB.active_id=DB.activeProgram.public_id;
+  }
+  if(DB.active_id && !activeSub()) DB.active_id=(DB.subscriptions[0]||{}).public_id||null;
+}
+function hydrateActive(){
+  const s=activeSub(); const pr=normProgress(s&&s.progress);
+  DB.doneCount=pr.doneCount; DB.serDone=pr.serDone; DB.session=pr.session; DB.sessDone=pr.sessDone;
+  DB.activeProgram=s?{public_id:s.public_id,name:s.name,by:s.by}:null;
+  if(!s){ DB.program=[]; DB.series=[]; }
+}
+function dehydrateActive(){
+  const s=activeSub(); if(!s) return;
+  s.progress={doneCount:DB.doneCount,serDone:DB.serDone,session:DB.session,sessDone:DB.sessDone};
+}
+
+/* active subscription's content is read LIVE from the trainer so their edits propagate.
+   progress is the trainee's and is left untouched. */
 async function loadActiveProgram(){
   const ap=DB.activeProgram; if(!ap||!ap.public_id) return false;
   try{
@@ -331,6 +367,7 @@ async function loadActiveProgram(){
     DB.program=(c.entries||[]).map(p=>typeof p==='string'?{id:p,freq:1}:p);
     DB.series=c.series||[];
     DB.activeProgram={public_id:d.public_id,name:d.name,by:d.by};
+    const s=activeSub(); if(s){ s.name=d.name; s.by=d.by; } // keep the library row's label fresh
     localStorage.setItem('hard_mvp',JSON.stringify(DB));
     return true;
   }catch(_){ return false; } // offline: keep snapshot
@@ -343,6 +380,7 @@ function loadLocal(){
     DB.tags=DB.tags||[]; DB.exTags=DB.exTags||{}; DB.media=DB.media||{}; DB.ratings=DB.ratings||{};
     DB.program=(DB.program||[]).map(p=>typeof p==='string'?{id:p,freq:1}:p);
     DB.session=(DB.session||[]).map(it=>typeof it==='string'?{k:'e',id:it}:it);
+    ensureLibraryShape(); hydrateActive();
   }catch(_){}
 }
 async function loadExercises(){
@@ -361,11 +399,11 @@ async function loadExercises(){
 }
 
 /* ---------- router ---------- */
-const ROUTEPATHS={program:'/program',session:'/session',find:'/find',trainer:'/trainer'};
+const ROUTEPATHS={programs:'/programs',program:'/program',session:'/session',find:'/find',trainer:'/trainer'};
 function applyPath(p){
   if(p&&p.startsWith('/p/')){ UI.ppid=p.slice(3); PPDATA=null; UI.screen='progpage'; return; }
-  UI.screen={'/program':'program','/session':'session','/find':'find','/trainer':'trainer','/':'program'}[p]||'program';
-  if(UI.screen==='trainer'&&!canAuthor()) UI.screen='program';
+  UI.screen={'/programs':'programs','/program':'program','/session':'session','/find':'find','/trainer':'trainer','/':'programs'}[p]||'programs';
+  if(UI.screen==='trainer'&&!canAuthor()) UI.screen='programs';
 }
 function landAfterAuth(){
   if(PENDH.startsWith('#p/')) applyPath('/p/'+PENDH.slice(3));
@@ -503,8 +541,9 @@ window.toggleSesSer=sid=>{ UI.openSesSer[sid]=UI.openSesSer[sid]===false?true:fa
 /* ---------- shared UI bits ---------- */
 function nav(){
   const n=sessionLeaves().length;
+  const onLib=UI.screen==='programs'||UI.screen==='program'||UI.screen==='progpage'||UI.screen==='find';
   return `<div class="nav">
-    <button class="${UI.screen==='program'?'on':''}" onclick="go('program')">program</button>
+    <button class="${onLib?'on':''}" onclick="go('programs')">programs</button>
     <button class="${UI.screen==='session'?'on':''}" onclick="go('session')">session ${n?'· '+n:''}</button>
     <button onclick="toggleTheme()" style="flex:none;min-width:46px" title="theme">◐</button>
   </div>`;
@@ -993,6 +1032,21 @@ function renderExDetail(){
 
 /* ---------- find + program page + enroll ---------- */
 let PUBLIST=null, PPDATA=null;
+function renderPrograms(){
+  const subs=DB.subscriptions||[];
+  let h=`<div class="hd"><div class="eye"><span>YOUR LIBRARY</span></div>
+    <div class="trow"><div class="ttl">programs</div></div></div><div class="list">`;
+  if(!subs.length) h+='<div class="empty">no programs yet.</div>';
+  else for(const s of subs){ const act=s.public_id===DB.active_id;
+    h+=`<div class="row" onclick="showProgPage('${esc(s.public_id)}')"><div class="rb">
+      <div class="rtop"><span class="exn" style="font-size:18px">${esc(s.name||'program')}</span>
+      ${act?'<span class="goal" style="color:var(--red-ink)">active</span>':''}</div>
+      <div class="tags"><span class="tag sc">by ${esc(s.by||'')}</span></div></div></div>`;
+  }
+  h+=`<div class="row" onclick="go('find')" style="justify-content:center"><span class="exn" style="color:var(--red-ink);font-size:16px">+ shop for programs →</span></div>`;
+  h+=`</div>${nav()}`;
+  $.innerHTML=h;
+}
 function renderFind(){
   let h=`<div class="hd"><div class="eye"><span>FIND A PROGRAM</span></div>
     <div class="trow"><div class="ttl">find</div></div></div><div class="list">`;
@@ -1019,9 +1073,11 @@ function renderProgPage(){
     return;
   }
   const c=d.content||{}, free=!d.price_cents;
-  let h=`<div class="backlnk" onclick="go('find')">← find</div>
+  const sub=(DB.subscriptions||[]).find(s=>s.public_id===d.public_id);
+  const isActive=DB.active_id===d.public_id;
+  let h=`<div class="backlnk" onclick="go('${sub?'programs':'find'}')">← ${sub?'programs':'find'}</div>
   <div class="hd" style="padding-top:8px">
-    <div class="eye"><span>PROGRAM</span><span>${free?'FREE':'$'+(d.price_cents/100).toFixed(2)}</span></div>
+    <div class="eye"><span>${isActive?'ACTIVE PROGRAM':'PROGRAM'}</span><span>${free?'FREE':'$'+(d.price_cents/100).toFixed(2)}</span></div>
     <div class="trow"><div class="ttl" style="font-size:32px">${esc(d.name)}</div></div>
     <div class="sl" style="font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:6px">by ${esc(d.by)}${d.description?' — '+esc(d.description):''}</div>
   </div><div class="list">`;
@@ -1032,18 +1088,50 @@ function renderProgPage(){
   }
   for(const en of (c.entries||[])){ const e=EXBY[en.id];
     h+=`<div class="srow">${mediaHTML(en.id)}<span class="exn" style="font-size:16px">${esc(e?e.suggested_name:en.id)}</span><span class="goal">${en.freq==='every'?'every session':en.freq+'×/cycle'}</span></div>`; }
-  h+=`</div><div class="bar">
-    <button class="go" style="flex:1" ${free?`onclick="enrollProgram('${d.public_id}')"`:'disabled style="opacity:.55"'}>${free?'SUBSCRIBE':'$'+(d.price_cents/100).toFixed(2)+' — PAYMENTS COMING SOON'}</button></div>${nav()}`;
+  let cta;
+  if(!sub){ cta = free
+      ? `<button class="go" style="flex:1" onclick="enrollProgram('${d.public_id}')">SUBSCRIBE</button>`
+      : `<button class="go" style="flex:1;opacity:.55" disabled>$${(d.price_cents/100).toFixed(2)} — PAYMENTS COMING SOON</button>`; }
+  else if(isActive){ cta = `<button class="go" style="flex:1" onclick="go('program')">START A SESSION →</button>`; }
+  else { cta = `<button class="go" style="flex:1" onclick="setActive('${d.public_id}')">MAKE ACTIVE</button>`; }
+  const leave = sub ? `<button class="go ghost" style="flex:none;min-width:64px" onclick="unsubscribe('${d.public_id}')" title="leave program">leave</button>` : '';
+  h+=`</div><div class="bar">${cta}${leave}</div>${nav()}`;
   $.innerHTML=h;
 }
 window.enrollProgram=async pid=>{
-  if(!confirm("subscribe to this program? you'll get the trainer's updates live. (replaces your current program; your ratings survive)"))return;
+  if(!confirm("add this program to your library? you'll get the trainer's updates live."))return;
   try{
     const r=await fetch(API+'/programs/'+pid+'/enroll',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
     if(r.status===402){ toast('paid program — payments coming soon'); return; }
     if(!r.ok){ toast('could not subscribe'); return; }
+    const res=await r.json();
     localStorage.removeItem('duro_sync_at');
-    await pullState(); await loadActiveProgram(); seedSession(); toast('subscribed'); go('program');
+    await pullState();                       // pulls the new library shape + hydrates
+    toast('added to library');
+    if(res.active_id===pid){ await loadActiveProgram(); seedSession(); save(); go('program'); }
+    else render();                           // stays on detail, now showing MAKE ACTIVE
+  }catch(_){ toast('offline'); }
+};
+window.setActive=async pid=>{
+  dehydrateActive();                         // persist the outgoing program's progress
+  try{
+    const r=await fetch(API+'/programs/'+pid+'/activate',{method:'POST',headers:{'Authorization':'Bearer '+syncToken()}});
+    if(!r.ok){ toast('could not activate'); return; }
+    DB.active_id=pid; hydrateActive();
+    await loadActiveProgram(); seedSession(); save();
+    toast('now active'); go('program');
+  }catch(_){ toast('offline'); }
+};
+window.unsubscribe=async pid=>{
+  if(!confirm('leave this program? your progress in it is removed.'))return;
+  try{
+    const r=await fetch(API+'/programs/'+pid+'/subscription',{method:'DELETE',headers:{'Authorization':'Bearer '+syncToken()}});
+    if(!r.ok){ toast('could not leave'); return; }
+    const res=await r.json();
+    DB.subscriptions=(DB.subscriptions||[]).filter(s=>s.public_id!==pid);
+    DB.active_id=res.active_id; hydrateActive();
+    await loadActiveProgram(); save();
+    toast('left program'); go('programs');
   }catch(_){ toast('offline'); }
 };
 
@@ -1319,6 +1407,7 @@ function render(){
   else if(UI.screen==='complete') renderComplete();
   else if(UI.screen==='focus') return renderFocus();
   else if(UI.screen==='exdetail') renderExDetail();
+  else if(UI.screen==='programs') renderPrograms();
   else if(UI.screen==='find') renderFind();
   else if(UI.screen==='progpage') renderProgPage();
   else renderProgram();
