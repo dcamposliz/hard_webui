@@ -949,8 +949,13 @@ function renderProgram(){
 function renderSession(){
   const leaves=sessionLeaves();
   if(!leaves.length){
+    const hasActive=!!DB.active_id;
     $.innerHTML=`<div class="hd"><div class="eye"><span>TODAY</span></div><div class="trow"><div class="ttl">the<br>session</div></div></div>
-      <div class="empty">nothing in today's session yet.<br>go to the program and tap exercises in.</div>${nav()}`;
+      <div class="empty" style="display:flex;flex-direction:column;align-items:center;gap:20px;padding:40px 24px">
+        <div>nothing in today's session yet.</div>
+        <button class="go" style="font-size:17px;padding:20px 24px;border-radius:14px" onclick="go('${hasActive?'program':'programs'}')">
+          ${hasActive?'CREATE SESSION FROM PROGRAM →':'PICK A PROGRAM →'}</button>
+      </div>${nav()}`;
     return;
   }
   const total=leaves.length, done=leaves.filter(id=>DB.sessDone.includes(id)).length;
