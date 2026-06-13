@@ -695,9 +695,14 @@ document.addEventListener('pointermove',ev=>{
       return;
     }
   }
-  if(st) for(const hd of document.querySelectorAll('[data-sec]')){ // hover a section header → drop in at its top
-    const b=hd.getBoundingClientRect();
-    if(ev.clientY>b.top&&ev.clientY<b.bottom){ hd.parentNode.insertBefore(DRAG.row,hd.nextSibling); break; }
+  if(st){
+    for(const hd of document.querySelectorAll('[data-sec]')){ // hover a section header → drop in at its top
+      const b=hd.getBoundingClientRect();
+      if(b.height&&ev.clientY>b.top&&ev.clientY<b.bottom){ hd.parentNode.insertBefore(DRAG.row,hd.nextSibling); return; }
+    }
+    const cont=document.getElementById('stdoc'); // below everything → loose
+    const last=cont&&[...cont.children].filter(c=>c!==DRAG.row).pop();
+    if(last&&ev.clientY>last.getBoundingClientRect().bottom) cont.appendChild(DRAG.row);
   }
 },{passive:false});
 document.addEventListener('pointerup',()=>{
@@ -1176,7 +1181,8 @@ function stPeditHTML(){
         <button class="st-mini" onclick="stRm('${s.id}',${i})">×</button></div>`;
     });
   }
-  if(d.entries.length||d.series.length) R+=`<div class="st-serhd" data-sec="entries" style="margin-top:18px"><span class="nm">loose exercises</span>
+  R+=`<div data-sec="entries" style="height:0"></div>`; // invisible section marker: rows after this are loose
+  if(d.series.length&&d.entries.length) R+=`<div class="st-serhd" style="margin-top:18px"><span class="nm">loose exercises</span>
     <button class="st-mini" onclick="ST.target='entries';renderStudio()" title="add here">⊕</button></div>`;
   d.entries.forEach((en,i)=>{
     R+=`<div class="st-doc-row" data-did="${esc(en.id)}" data-grp="st:entries"><span class="mut">${i+1}</span>${stThumb(en.id)}<span class="nm">${esc(stName(en.id))}</span>
