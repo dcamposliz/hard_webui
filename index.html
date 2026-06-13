@@ -899,9 +899,13 @@ function renderProgram(){
     entries.sort((a,b)=>key(a).localeCompare(key(b))); }
   else if(UI.sort==='region'){ const home=e=>GROUPS.findIndex(g=>exGroups(e)[g]==='pri'); entries.sort((a,b)=>home(a.e)-home(b.e)); }
   else if(UI.sort==='az') entries.sort((a,b)=>a.e.suggested_name.localeCompare(b.e.suggested_name));
-  const numeric=DB.program.filter(p=>p.freq!=='every');
-  const totalSlots=numeric.reduce((s,p)=>s+p.freq,0);
-  const doneSlots=numeric.reduce((s,p)=>s+Math.min(countOf(p.id),p.freq),0);
+  // cycle progress counts EVERY cycle unit: loose exercises AND series (each per its
+  // per-cycle frequency). 'every session' items aren't cycle targets, so they're excluded.
+  const numEnt=DB.program.filter(p=>p.freq!=='every');
+  const numSer=DB.series.filter(s=>s.freq!=='every');
+  const totalSlots=numEnt.reduce((a,p)=>a+p.freq,0)+numSer.reduce((a,s)=>a+s.freq,0);
+  const doneSlots=numEnt.reduce((a,p)=>a+Math.min(countOf(p.id),p.freq),0)
+                 +numSer.reduce((a,s)=>a+Math.min(DB.serDone[s.id]||0,s.freq),0);
   const sessN=sessionLeaves().length;
   const ap=DB.activeProgram;
   let h=`<div class="hd">
